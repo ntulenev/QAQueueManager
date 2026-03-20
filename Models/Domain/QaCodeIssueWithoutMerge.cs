@@ -11,6 +11,6 @@ namespace QAQueueManager.Models.Domain;
 internal sealed record QaCodeIssueWithoutMerge(
     QaIssue Issue,
     string RepositoryFullName,
-    string RepositorySlug,
+    RepositorySlug RepositorySlug,
     IReadOnlyList<JiraPullRequestLink> PullRequests,
     IReadOnlyList<string> BranchNames);

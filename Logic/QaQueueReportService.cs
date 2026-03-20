@@ -156,7 +156,7 @@ internal sealed class QaQueueReportService : IQaQueueReportService
                 issue,
                 [new RepositoryResolution(
                     "Unknown repository",
-                    "unknown",
+                    RepositorySlug.Unknown,
                     new IssueWithoutMergeData([], []),
                     null)]);
         }
@@ -204,7 +204,7 @@ internal sealed class QaQueueReportService : IQaQueueReportService
                 continue;
             }
 
-            var bitbucketPullRequest = string.Equals(repositorySlug, "unknown", StringComparison.OrdinalIgnoreCase)
+            var bitbucketPullRequest = repositorySlug == RepositorySlug.Unknown
                 ? null
                 : await _bitbucketClient
                     .GetPullRequestAsync(repositorySlug, candidate.Id, cancellationToken)
@@ -221,12 +221,12 @@ internal sealed class QaQueueReportService : IQaQueueReportService
                             candidate.Id,
                             candidate.Status,
                             repositoryFullName,
-                            repositorySlug,
+                            repositorySlug.Value,
                             repositorySlug,
                             candidate.SourceBranch,
                             candidate.DestinationBranch,
                             candidate.Url,
-                            string.Empty,
+                            null,
                             candidate.LastUpdatedOn),
                         VersionNotFound)));
                 continue;
@@ -258,13 +258,13 @@ internal sealed class QaQueueReportService : IQaQueueReportService
         BitbucketPullRequest pullRequest,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(pullRequest.MergeCommitHash))
+        if (pullRequest.MergeCommitHash is null)
         {
             return VersionNotFound;
         }
 
         var tags = await _bitbucketClient
-            .GetTagsByCommitHashAsync(pullRequest.RepositorySlug, pullRequest.MergeCommitHash, cancellationToken)
+            .GetTagsByCommitHashAsync(pullRequest.RepositorySlug, pullRequest.MergeCommitHash.Value, cancellationToken)
             .ConfigureAwait(false);
 
         return tags.Count == 0 ? VersionNotFound : tags[0].Name;
@@ -369,7 +369,7 @@ internal sealed class QaQueueReportService : IQaQueueReportService
         IDictionary<string, RepositoryAccumulator> repositories,
         QaIssue issue,
         string repositoryFullName,
-        string repositorySlug,
+        RepositorySlug repositorySlug,
         IReadOnlyList<JiraPullRequestLink> pullRequests,
         IReadOnlyList<string> branchNames)
     {
@@ -386,7 +386,7 @@ internal sealed class QaQueueReportService : IQaQueueReportService
         IDictionary<string, RepositoryAccumulator> repositories,
         QaIssue issue,
         string repositoryFullName,
-        string repositorySlug,
+        RepositorySlug repositorySlug,
         BitbucketPullRequest pullRequest,
         string version)
     {
@@ -408,7 +408,7 @@ internal sealed class QaQueueReportService : IQaQueueReportService
     private static RepositoryAccumulator GetAccumulator(
         IDictionary<string, RepositoryAccumulator> repositories,
         string repositoryFullName,
-        string repositorySlug)
+        RepositorySlug repositorySlug)
     {
         if (repositories.TryGetValue(repositoryFullName, out var accumulator))
         {
@@ -420,16 +420,16 @@ internal sealed class QaQueueReportService : IQaQueueReportService
         return accumulator;
     }
 
-    private static string ExtractRepositorySlug(string repositoryFullName)
+    private static RepositorySlug ExtractRepositorySlug(string repositoryFullName)
     {
         if (string.IsNullOrWhiteSpace(repositoryFullName))
         {
-            return "unknown";
+            return RepositorySlug.Unknown;
         }
 
         var normalized = repositoryFullName.Trim().Replace('\\', '/');
         var parts = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return parts.Length == 0 ? "unknown" : parts[^1];
+        return parts.Length == 0 ? RepositorySlug.Unknown : new RepositorySlug(parts[^1]);
     }
 
     private static string NormalizeTeamName(string? team) =>

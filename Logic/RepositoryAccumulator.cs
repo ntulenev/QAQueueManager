@@ -12,7 +12,7 @@ internal sealed class RepositoryAccumulator
     /// </summary>
     /// <param name="repositoryFullName">The full repository name.</param>
     /// <param name="repositorySlug">The repository slug.</param>
-    public RepositoryAccumulator(string repositoryFullName, string repositorySlug)
+    public RepositoryAccumulator(string repositoryFullName, RepositorySlug repositorySlug)
     {
         RepositoryFullName = repositoryFullName;
         RepositorySlug = repositorySlug;
@@ -26,7 +26,7 @@ internal sealed class RepositoryAccumulator
     /// <summary>
     /// Gets the repository slug.
     /// </summary>
-    public string RepositorySlug { get; }
+    public RepositorySlug RepositorySlug { get; }
 
     /// <summary>
     /// Gets the issues without a target-branch merge.
@@ -58,7 +58,7 @@ internal sealed class RepositoryAccumulator
         return new QaRepositorySection(RepositoryFullName, RepositorySlug, withoutMerge, mergedRows);
     }
 
-    private static IReadOnlyList<QaMergedIssueVersionRow> BuildMergedIssueRows(IGrouping<long, PendingMergedIssue> group)
+    private static IReadOnlyList<QaMergedIssueVersionRow> BuildMergedIssueRows(IGrouping<JiraIssueId, PendingMergedIssue> group)
     {
         var items = group.ToList();
         var sample = items[0];

@@ -12,7 +12,7 @@ namespace QAQueueManager.Models.Domain;
 internal sealed record QaMergedIssueVersionRow(
     QaIssue Issue,
     string RepositoryFullName,
-    string RepositorySlug,
+    RepositorySlug RepositorySlug,
     string Version,
     IReadOnlyList<QaMergedPullRequest> PullRequests,
     bool HasMultipleVersions);

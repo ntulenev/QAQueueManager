@@ -18,7 +18,7 @@ internal sealed class OpenXmlWorkbookFormatter : IWorkbookFormatter
     /// </summary>
     /// <param name="workbookStream">The workbook stream to format.</param>
     /// <param name="layouts">Per-sheet layout metadata.</param>
-    public void Format(Stream workbookStream, IReadOnlyDictionary<string, ExcelSheetLayout> layouts)
+    public void Format(Stream workbookStream, IReadOnlyDictionary<ExcelSheetName, ExcelSheetLayout> layouts)
     {
         ArgumentNullException.ThrowIfNull(workbookStream);
         ArgumentNullException.ThrowIfNull(layouts);
@@ -35,7 +35,8 @@ internal sealed class OpenXmlWorkbookFormatter : IWorkbookFormatter
 
             foreach (var sheet in workbook.Sheets?.OfType<Sheet>() ?? [])
             {
-                if (!layouts.TryGetValue(sheet.Name?.Value ?? string.Empty, out var layout))
+                if (!ExcelSheetName.TryCreate(sheet.Name?.Value, out var sheetName) ||
+                    !layouts.TryGetValue(sheetName, out var layout))
                 {
                     continue;
                 }

@@ -8,5 +8,5 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="TaggedOn">The tag timestamp.</param>
 internal sealed record BitbucketTag(
     string Name,
-    string TargetHash,
+    CommitHash? TargetHash,
     DateTimeOffset? TaggedOn);

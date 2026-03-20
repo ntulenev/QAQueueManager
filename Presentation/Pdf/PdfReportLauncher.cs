@@ -1,6 +1,7 @@
 using System.Diagnostics;
 
 using QAQueueManager.Abstractions;
+using QAQueueManager.Models.Domain;
 
 namespace QAQueueManager.Presentation.Pdf;
 
@@ -13,13 +14,11 @@ internal sealed class PdfReportLauncher : IPdfReportLauncher
     /// Opens the specified PDF path.
     /// </summary>
     /// <param name="path">The PDF path to open.</param>
-    public void Launch(string path)
+    public void Launch(ReportFilePath path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
         var startInfo = new ProcessStartInfo
         {
-            FileName = path,
+            FileName = path.Value,
             UseShellExecute = true
         };
 

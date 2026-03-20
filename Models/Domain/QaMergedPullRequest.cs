@@ -11,10 +11,10 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="MergeCommitHash">The merge commit hash.</param>
 /// <param name="PullRequestUpdatedOn">The last updated timestamp.</param>
 internal sealed record QaMergedPullRequest(
-    int PullRequestId,
+    PullRequestId PullRequestId,
     string SourceBranch,
     string DestinationBranch,
     string Version,
     string PullRequestUrl,
-    string MergeCommitHash,
+    CommitHash? MergeCommitHash,
     DateTimeOffset? PullRequestUpdatedOn);

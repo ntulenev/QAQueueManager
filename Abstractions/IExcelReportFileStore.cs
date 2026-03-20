@@ -1,3 +1,5 @@
+using QAQueueManager.Models.Domain;
+
 namespace QAQueueManager.Abstractions;
 
 /// <summary>
@@ -11,5 +13,5 @@ internal interface IExcelReportFileStore
     /// <param name="contentStream">The workbook stream to save.</param>
     /// <param name="suggestedPath">The configured output path.</param>
     /// <returns>The final path of the saved workbook.</returns>
-    string Save(Stream contentStream, string suggestedPath);
+    ReportFilePath Save(Stream contentStream, ReportFilePath suggestedPath);
 }

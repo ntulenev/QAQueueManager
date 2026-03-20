@@ -12,5 +12,5 @@ namespace QAQueueManager.Logic;
 internal sealed record PendingMergedIssue(
     QaIssue Issue,
     string RepositoryFullName,
-    string RepositorySlug,
+    RepositorySlug RepositorySlug,
     QaMergedPullRequest PullRequest);

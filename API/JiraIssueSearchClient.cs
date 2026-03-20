@@ -267,6 +267,7 @@ internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
         foreach (var issue in issues)
         {
             if (!long.TryParse(issue.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var issueId) ||
+                issueId <= 0 ||
                 string.IsNullOrWhiteSpace(issue.Key))
             {
                 continue;
@@ -284,7 +285,7 @@ internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
             var teams = ExtractTeams(values, teamApiFields);
             var updatedAt = TryParseDate(updatedElement);
 
-            result.Add(new QaIssue(issueId, issue.Key.Trim(), summary, status, development, teams, updatedAt));
+            result.Add(new QaIssue(new JiraIssueId(issueId), issue.Key.Trim(), summary, status, development, teams, updatedAt));
         }
 
         return result;

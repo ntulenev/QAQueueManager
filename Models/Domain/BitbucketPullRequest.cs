@@ -14,13 +14,13 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="MergeCommitHash">The merge commit hash.</param>
 /// <param name="UpdatedOn">The last updated timestamp.</param>
 internal sealed record BitbucketPullRequest(
-    int Id,
+    PullRequestId Id,
     string State,
     string RepositoryFullName,
     string RepositoryDisplayName,
-    string RepositorySlug,
+    RepositorySlug RepositorySlug,
     string SourceBranch,
     string DestinationBranch,
     string HtmlUrl,
-    string MergeCommitHash,
+    CommitHash? MergeCommitHash,
     DateTimeOffset? UpdatedOn);

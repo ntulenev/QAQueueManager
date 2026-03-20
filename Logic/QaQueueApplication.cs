@@ -60,8 +60,8 @@ internal sealed class QaQueueApplication : IQaQueueApplication
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         QaQueueReport? report = null;
-        string? pdfPath = null;
-        string? excelPath = null;
+        ReportFilePath? pdfPath = null;
+        ReportFilePath? excelPath = null;
 
         await AnsiConsole.Progress()
             .AutoClear(false)
@@ -84,30 +84,30 @@ internal sealed class QaQueueApplication : IQaQueueApplication
                 progressView.StartPdfExport();
                 var content = _pdfReportRenderer.Render(report);
                 progressView.ReportPdfRendered();
-                pdfPath = _pdfReportFileStore.Save(content, _reportOptions.PdfOutputPath);
-                progressView.ReportPdfSaved(pdfPath);
+                pdfPath = _pdfReportFileStore.Save(content, new ReportFilePath(_reportOptions.PdfOutputPath));
+                progressView.ReportPdfSaved(pdfPath ?? throw new InvalidOperationException("PDF path was not produced."));
 
                 progressView.StartExcelExport();
                 using var workbookStream = _excelReportRenderer.Render(report);
                 progressView.ReportExcelRendered();
-                excelPath = _excelReportFileStore.Save(workbookStream, _reportOptions.ExcelOutputPath);
-                progressView.ReportExcelSaved(excelPath);
+                excelPath = _excelReportFileStore.Save(workbookStream, new ReportFilePath(_reportOptions.ExcelOutputPath));
+                progressView.ReportExcelSaved(excelPath ?? throw new InvalidOperationException("Excel path was not produced."));
             })
             .ConfigureAwait(false);
 
         ArgumentNullException.ThrowIfNull(report);
-        ArgumentException.ThrowIfNullOrWhiteSpace(pdfPath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(excelPath);
+        ArgumentNullException.ThrowIfNull(pdfPath);
+        ArgumentNullException.ThrowIfNull(excelPath);
 
         _presentationService.Render(report);
 
         Console.WriteLine();
-        Console.WriteLine($"PDF exported to: {pdfPath}");
-        Console.WriteLine($"Excel exported to: {excelPath}");
+        Console.WriteLine($"PDF exported to: {pdfPath.Value}");
+        Console.WriteLine($"Excel exported to: {excelPath.Value}");
 
         if (_reportOptions.OpenAfterGeneration)
         {
-            _pdfReportLauncher.Launch(pdfPath);
+            _pdfReportLauncher.Launch(pdfPath.Value);
         }
     }
 
@@ -230,12 +230,12 @@ internal sealed class QaQueueApplication : IQaQueueApplication
         /// Marks PDF export as completed.
         /// </summary>
         /// <param name="path">The saved PDF path.</param>
-        public void ReportPdfSaved(string path)
+        public void ReportPdfSaved(ReportFilePath path)
         {
             lock (_syncRoot)
             {
                 _pdfTask.Value = 2;
-                _pdfTask.Description = $"[green]Export PDF[/] {Escape(Path.GetFileName(path))}";
+                _pdfTask.Description = $"[green]Export PDF[/] {Escape(Path.GetFileName(path.Value))}";
             }
         }
 
@@ -267,12 +267,12 @@ internal sealed class QaQueueApplication : IQaQueueApplication
         /// Marks Excel export as completed.
         /// </summary>
         /// <param name="path">The saved Excel path.</param>
-        public void ReportExcelSaved(string path)
+        public void ReportExcelSaved(ReportFilePath path)
         {
             lock (_syncRoot)
             {
                 _excelTask.Value = 2;
-                _excelTask.Description = $"[green]Export Excel[/] {Escape(Path.GetFileName(path))}";
+                _excelTask.Description = $"[green]Export Excel[/] {Escape(Path.GetFileName(path.Value))}";
             }
         }
 

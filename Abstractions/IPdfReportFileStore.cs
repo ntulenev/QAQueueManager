@@ -1,3 +1,5 @@
+using QAQueueManager.Models.Domain;
+
 namespace QAQueueManager.Abstractions;
 
 /// <summary>
@@ -11,5 +13,5 @@ internal interface IPdfReportFileStore
     /// <param name="content">The PDF bytes to save.</param>
     /// <param name="suggestedPath">The configured output path.</param>
     /// <returns>The final path of the saved PDF file.</returns>
-    string Save(byte[] content, string suggestedPath);
+    ReportFilePath Save(byte[] content, ReportFilePath suggestedPath);
 }

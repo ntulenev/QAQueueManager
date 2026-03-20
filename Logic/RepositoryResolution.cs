@@ -1,3 +1,5 @@
+using QAQueueManager.Models.Domain;
+
 namespace QAQueueManager.Logic;
 
 /// <summary>
@@ -9,6 +11,6 @@ namespace QAQueueManager.Logic;
 /// <param name="Merged">The merged payload when the issue is merged into the target branch.</param>
 internal sealed record RepositoryResolution(
     string RepositoryFullName,
-    string RepositorySlug,
+    RepositorySlug RepositorySlug,
     IssueWithoutMergeData? WithoutMerge,
     MergedIssueData? Merged);

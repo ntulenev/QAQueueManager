@@ -9,6 +9,6 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="MergedIssueRows">The merged rows grouped by artifact version.</param>
 internal sealed record QaRepositorySection(
     string RepositoryFullName,
-    string RepositorySlug,
+    RepositorySlug RepositorySlug,
     IReadOnlyList<QaCodeIssueWithoutMerge> WithoutTargetMerge,
     IReadOnlyList<QaMergedIssueVersionRow> MergedIssueRows);

@@ -6,12 +6,12 @@ namespace QAQueueManager.Models.Rendering;
 /// Describes layout metadata for a single Excel worksheet.
 /// </summary>
 /// <param name="name">The worksheet name.</param>
-internal sealed class ExcelSheetLayout(string name)
+internal sealed class ExcelSheetLayout(ExcelSheetName name)
 {
     /// <summary>
     /// Gets or sets the worksheet name.
     /// </summary>
-    public string Name { get; set; } = name;
+    public ExcelSheetName Name { get; set; } = name;
 
     /// <summary>
     /// Gets the configured column widths keyed by one-based column index.

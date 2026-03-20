@@ -11,7 +11,7 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="Teams">The resolved team names.</param>
 /// <param name="UpdatedAt">The last updated timestamp.</param>
 internal sealed record QaIssue(
-    long Id,
+    JiraIssueId Id,
     string Key,
     string Summary,
     string Status,

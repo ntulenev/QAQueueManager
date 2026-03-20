@@ -34,8 +34,8 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
     {
         ArgumentNullException.ThrowIfNull(report);
 
-        var sheets = new Dictionary<string, object>(StringComparer.Ordinal);
-        var layouts = new Dictionary<string, ExcelSheetLayout>(StringComparer.Ordinal);
+        var sheets = new Dictionary<ExcelSheetName, object>();
+        var layouts = new Dictionary<ExcelSheetName, ExcelSheetLayout>();
         var usedSheetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var teams = report.IsGroupedByTeam
@@ -268,33 +268,21 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         layout.CellStyles["A" + rowIndex.ToString(CultureInfo.InvariantCulture)] = ExcelCellStyleKind.MetadataLabel;
     }
 
-    private static string BuildUniqueSheetName(string baseName, HashSet<string> usedNames)
+    private static ExcelSheetName BuildUniqueSheetName(string baseName, HashSet<string> usedNames)
     {
-        var sanitized = SanitizeSheetName(baseName);
-        var candidate = sanitized;
+        var sanitized = ExcelSheetName.Sanitize(baseName, "Team");
+        var candidate = sanitized.Value;
         var suffix = 2;
 
         while (!usedNames.Add(candidate))
         {
             var suffixValue = "_" + suffix.ToString(CultureInfo.InvariantCulture);
             var maxBaseLength = 31 - suffixValue.Length;
-            candidate = sanitized[..Math.Min(sanitized.Length, maxBaseLength)] + suffixValue;
+            candidate = sanitized.Value[..Math.Min(sanitized.Value.Length, maxBaseLength)] + suffixValue;
             suffix++;
         }
 
-        return candidate;
-    }
-
-    private static string SanitizeSheetName(string value)
-    {
-        var filteredChars = value.Where(ch => !"\\/?*[]:".Contains(ch)).ToArray();
-        var filtered = new string(filteredChars).Trim();
-        if (filtered.Length == 0)
-        {
-            filtered = "Team";
-        }
-
-        return filtered.Length <= 31 ? filtered : filtered[..31];
+        return new ExcelSheetName(candidate);
     }
 
     private static int ColumnNameToIndex(string columnName)
@@ -369,7 +357,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
     /// <param name="Rows">The worksheet rows.</param>
     /// <param name="Layout">The worksheet layout metadata.</param>
     private sealed record BuiltSheet(
-        string Name,
+        ExcelSheetName Name,
         List<Dictionary<string, object?>> Rows,
         ExcelSheetLayout Layout);
 

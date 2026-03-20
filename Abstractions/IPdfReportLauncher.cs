@@ -1,3 +1,5 @@
+using QAQueueManager.Models.Domain;
+
 namespace QAQueueManager.Abstractions;
 
 /// <summary>
@@ -9,5 +11,5 @@ internal interface IPdfReportLauncher
     /// Launches the specified PDF file.
     /// </summary>
     /// <param name="path">The PDF path to open.</param>
-    void Launch(string path);
+    void Launch(ReportFilePath path);
 }

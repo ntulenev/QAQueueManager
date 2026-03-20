@@ -35,7 +35,7 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
     /// <param name="cancellationToken">The cancellation token for the operation.</param>
     /// <returns>The linked pull requests.</returns>
     public async Task<IReadOnlyList<JiraPullRequestLink>> GetPullRequestsAsync(
-        long issueId,
+        JiraIssueId issueId,
         CancellationToken cancellationToken)
     {
         var detail = await GetDetailsAsync(issueId, _options.PullRequestDataType, cancellationToken).ConfigureAwait(false);
@@ -63,7 +63,7 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
     /// <param name="cancellationToken">The cancellation token for the operation.</param>
     /// <returns>The linked branches.</returns>
     public async Task<IReadOnlyList<JiraBranchLink>> GetBranchesAsync(
-        long issueId,
+        JiraIssueId issueId,
         CancellationToken cancellationToken)
     {
         var detail = await GetDetailsAsync(issueId, _options.BranchDataType, cancellationToken).ConfigureAwait(false);
@@ -85,12 +85,12 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
     }
 
     private async Task<IReadOnlyList<JiraDevelopmentDetailDto>> GetDetailsAsync(
-        long issueId,
+        JiraIssueId issueId,
         string dataType,
         CancellationToken cancellationToken)
     {
         var url =
-            $"rest/dev-status/latest/issue/detail?issueId={issueId.ToString(CultureInfo.InvariantCulture)}" +
+            $"rest/dev-status/latest/issue/detail?issueId={issueId.Value.ToString(CultureInfo.InvariantCulture)}" +
             $"&applicationType={Uri.EscapeDataString(_options.BitbucketApplicationType)}" +
             $"&dataType={Uri.EscapeDataString(dataType)}";
 
@@ -123,7 +123,7 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
             : (DateTimeOffset?)null;
 
         return new JiraPullRequestLink(
-            pullRequestId,
+            new PullRequestId(pullRequestId),
             string.IsNullOrWhiteSpace(dto.Name) ? $"PR-{pullRequestId}" : dto.Name.Trim(),
             string.IsNullOrWhiteSpace(dto.Status) ? "UNKNOWN" : dto.Status.Trim(),
             repositoryFullName,

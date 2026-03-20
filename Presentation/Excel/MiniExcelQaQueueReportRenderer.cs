@@ -37,7 +37,10 @@ internal sealed class MiniExcelQaQueueReportRenderer : IExcelReportRenderer
 
         var workbook = _workbookContentComposer.ComposeWorkbook(report);
         var outputStream = new MemoryStream();
-        _ = MiniExcel.SaveAs(outputStream, workbook.Sheets, printHeader: false);
+        _ = MiniExcel.SaveAs(
+            outputStream,
+            workbook.Sheets.ToDictionary(static pair => pair.Key.Value, static pair => pair.Value, StringComparer.Ordinal),
+            printHeader: false);
         outputStream.Position = 0;
         _workbookFormatter.Format(outputStream, workbook.Layouts);
         outputStream.Position = 0;

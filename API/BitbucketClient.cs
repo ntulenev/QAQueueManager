@@ -36,8 +36,8 @@ internal sealed class BitbucketClient : IBitbucketClient
     /// <param name="cancellationToken">The cancellation token for the operation.</param>
     /// <returns>The mapped pull request, or <see langword="null"/> when it cannot be loaded.</returns>
     public async Task<BitbucketPullRequest?> GetPullRequestAsync(
-        string repositorySlug,
-        int pullRequestId,
+        RepositorySlug repositorySlug,
+        PullRequestId pullRequestId,
         CancellationToken cancellationToken)
     {
         var cacheKey = $"{repositorySlug}#{pullRequestId}";
@@ -47,7 +47,7 @@ internal sealed class BitbucketClient : IBitbucketClient
         }
 
         var url = new Uri(
-            $"repositories/{_options.Workspace}/{Uri.EscapeDataString(repositorySlug)}/pullrequests/{pullRequestId}",
+            $"repositories/{_options.Workspace}/{Uri.EscapeDataString(repositorySlug.Value)}/pullrequests/{pullRequestId.Value}",
             UriKind.Relative);
 
         BitbucketPullRequestResponse? response;
@@ -71,15 +71,17 @@ internal sealed class BitbucketClient : IBitbucketClient
         var repositoryFullName = response.Destination?.Repository?.FullName?.Trim();
         var repositoryDisplayName = response.Destination?.Repository?.Name?.Trim();
         var htmlUrl = response.Links?.Html?.Href?.Trim() ?? string.Empty;
-        var mergeCommitHash = response.MergeCommit?.Hash?.Trim() ?? string.Empty;
+        var mergeCommitHash = CommitHash.TryCreate(response.MergeCommit?.Hash, out var parsedMergeCommitHash)
+            ? (CommitHash?)parsedMergeCommitHash
+            : null;
 
         var mapped = new BitbucketPullRequest(
-            response.Id,
+            new PullRequestId(response.Id),
             response.State?.Trim() ?? "UNKNOWN",
             string.IsNullOrWhiteSpace(repositoryFullName)
-                ? $"{_options.Workspace}/{repositorySlug}"
+                ? $"{_options.Workspace}/{repositorySlug.Value}"
                 : repositoryFullName,
-            string.IsNullOrWhiteSpace(repositoryDisplayName) ? repositorySlug : repositoryDisplayName,
+            string.IsNullOrWhiteSpace(repositoryDisplayName) ? repositorySlug.Value : repositoryDisplayName,
             repositorySlug,
             response.Source?.Branch?.Name?.Trim() ?? "-",
             response.Destination?.Branch?.Name?.Trim() ?? "-",
@@ -99,13 +101,10 @@ internal sealed class BitbucketClient : IBitbucketClient
     /// <param name="cancellationToken">The cancellation token for the operation.</param>
     /// <returns>The matching tags ordered by version semantics.</returns>
     public async Task<IReadOnlyList<BitbucketTag>> GetTagsByCommitHashAsync(
-        string repositorySlug,
-        string commitHash,
+        RepositorySlug repositorySlug,
+        CommitHash commitHash,
         CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(repositorySlug);
-        ArgumentException.ThrowIfNullOrWhiteSpace(commitHash);
-
         var cacheKey = $"{repositorySlug}@{commitHash}";
         if (_tagCache.TryGetValue(cacheKey, out var cachedTags))
         {
@@ -123,7 +122,7 @@ internal sealed class BitbucketClient : IBitbucketClient
     }
 
     private async Task<IReadOnlyList<BitbucketTag>> GetRepositoryTagsAsync(
-        string repositorySlug,
+        RepositorySlug repositorySlug,
         CancellationToken cancellationToken)
     {
         if (_repositoryTagCache.TryGetValue(repositorySlug, out var cachedTags))
@@ -133,7 +132,7 @@ internal sealed class BitbucketClient : IBitbucketClient
 
         var tags = new List<BitbucketTag>();
         Uri? next = new Uri(
-            $"repositories/{_options.Workspace}/{Uri.EscapeDataString(repositorySlug)}/refs/tags?pagelen=100",
+            $"repositories/{_options.Workspace}/{Uri.EscapeDataString(repositorySlug.Value)}/refs/tags?pagelen=100",
             UriKind.Relative);
 
         while (next is not null)
@@ -158,7 +157,7 @@ internal sealed class BitbucketClient : IBitbucketClient
                         .Where(static item => !string.IsNullOrWhiteSpace(item.Name))
                         .Select(static item => new BitbucketTag(
                             item.Name!.Trim(),
-                            item.Target?.Hash?.Trim() ?? string.Empty,
+                            CommitHash.TryCreate(item.Target?.Hash, out var hash) ? hash : null,
                             item.Date)));
             }
 
@@ -192,15 +191,15 @@ internal sealed class BitbucketClient : IBitbucketClient
             : null;
     }
 
-    private static bool IsMatchingCommitHash(string? tagHash, string? commitHash)
+    private static bool IsMatchingCommitHash(CommitHash? tagHash, CommitHash commitHash)
     {
-        if (string.IsNullOrWhiteSpace(tagHash) || string.IsNullOrWhiteSpace(commitHash))
+        if (tagHash is null)
         {
             return false;
         }
 
-        var normalizedTagHash = tagHash.Trim();
-        var normalizedCommitHash = commitHash.Trim();
+        var normalizedTagHash = tagHash.Value.Value;
+        var normalizedCommitHash = commitHash.Value;
 
         return normalizedTagHash.Equals(normalizedCommitHash, StringComparison.OrdinalIgnoreCase)
             || normalizedTagHash.StartsWith(normalizedCommitHash, StringComparison.OrdinalIgnoreCase)
@@ -211,5 +210,5 @@ internal sealed class BitbucketClient : IBitbucketClient
     private readonly BitbucketOptions _options;
     private readonly ConcurrentDictionary<string, BitbucketPullRequest?> _pullRequestCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, IReadOnlyList<BitbucketTag>> _tagCache = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, IReadOnlyList<BitbucketTag>> _repositoryTagCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<RepositorySlug, IReadOnlyList<BitbucketTag>> _repositoryTagCache = [];
 }

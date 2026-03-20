@@ -15,8 +15,8 @@ internal interface IBitbucketClient
     /// <param name="cancellationToken">The cancellation token for the operation.</param>
     /// <returns>The mapped pull request, or <see langword="null"/> when it cannot be loaded.</returns>
     Task<BitbucketPullRequest?> GetPullRequestAsync(
-        string repositorySlug,
-        int pullRequestId,
+        RepositorySlug repositorySlug,
+        PullRequestId pullRequestId,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -27,7 +27,7 @@ internal interface IBitbucketClient
     /// <param name="cancellationToken">The cancellation token for the operation.</param>
     /// <returns>A list of matching tags ordered by version semantics.</returns>
     Task<IReadOnlyList<BitbucketTag>> GetTagsByCommitHashAsync(
-        string repositorySlug,
-        string commitHash,
+        RepositorySlug repositorySlug,
+        CommitHash commitHash,
         CancellationToken cancellationToken);
 }

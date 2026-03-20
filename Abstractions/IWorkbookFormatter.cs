@@ -12,5 +12,5 @@ internal interface IWorkbookFormatter
     /// </summary>
     /// <param name="workbookStream">The workbook stream to format.</param>
     /// <param name="layouts">Per-sheet layout metadata.</param>
-    void Format(Stream workbookStream, IReadOnlyDictionary<string, ExcelSheetLayout> layouts);
+    void Format(Stream workbookStream, IReadOnlyDictionary<ExcelSheetName, ExcelSheetLayout> layouts);
 }

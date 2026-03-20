@@ -13,7 +13,7 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="Url">The pull request URL.</param>
 /// <param name="LastUpdatedOn">The last updated timestamp.</param>
 internal sealed record JiraPullRequestLink(
-    int Id,
+    PullRequestId Id,
     string Title,
     string Status,
     string RepositoryFullName,
