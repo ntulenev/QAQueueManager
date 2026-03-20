@@ -1,0 +1,307 @@
+using FluentAssertions;
+
+using Microsoft.Extensions.Options;
+
+using Moq;
+
+using QAQueueManager.Abstractions;
+using QAQueueManager.Logic;
+using QAQueueManager.Models.Configuration;
+using QAQueueManager.Models.Domain;
+using QAQueueManager.Tests.Testing;
+
+namespace QAQueueManager.Tests.Logic;
+
+public sealed class QaQueueReportServiceTests
+{
+    [Fact(DisplayName = "BuildAsync builds repository sections when team grouping is disabled")]
+    [Trait("Category", "Unit")]
+    public async Task BuildAsyncWhenTeamGroupingIsDisabledBuildsRepositorySections()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var progressReports = new List<QaQueueBuildProgress>();
+        var progress = new Progress<QaQueueBuildProgress>(progressReports.Add);
+        var noCodeIssue = TestData.CreateIssue(1001, "QA-1", summary: "No code", developmentSummary: /*lang=json,strict*/ """{}""");
+        var codeIssue = TestData.CreateIssue(1002, "QA-2", summary: "Has code", status: "In QA", developmentSummary: /*lang=json,strict*/ """{"pullRequests":1}""");
+        var searchCalls = 0;
+        var loadCalls = 0;
+
+        var jiraIssueSearchClient = new Mock<IJiraIssueSearchClient>(MockBehavior.Strict);
+        jiraIssueSearchClient
+            .Setup(client => client.SearchIssuesAsync(It.Is<CancellationToken>(token => token == cts.Token)))
+            .Callback(() => searchCalls++)
+            .ReturnsAsync([noCodeIssue, codeIssue]);
+
+        var codeIssueDetailsLoader = new Mock<IQaCodeIssueDetailsLoader>(MockBehavior.Strict);
+        codeIssueDetailsLoader
+            .Setup(loader => loader.LoadAsync(
+                It.Is<IReadOnlyList<QaIssue>>(issues => issues.Count == 1 && issues[0] == codeIssue),
+                It.Is<IProgress<QaQueueBuildProgress>?>(reporter => reporter == progress),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .Callback<IReadOnlyList<QaIssue>, IProgress<QaQueueBuildProgress>?, CancellationToken>((_, reporter, _) =>
+            {
+                loadCalls++;
+                reporter!.Report(new QaQueueBuildProgress(QaQueueBuildProgressKind.CodeAnalysisStarted, "Loader callback", 0, 1));
+            })
+            .ReturnsAsync(
+            [
+                new ProcessedCodeIssue(
+                    codeIssue,
+                    [
+                        new RepositoryResolution(
+                            new RepositoryFullName("workspace/repo-a"),
+                            new RepositorySlug("repo-a"),
+                            new IssueWithoutMergeData([], [new BranchName("feature/qa-2")]),
+                            null)
+                    ])
+            ]);
+
+        var service = new QaQueueReportService(
+            jiraIssueSearchClient.Object,
+            codeIssueDetailsLoader.Object,
+            Options.Create(CreateJiraOptions()),
+            Options.Create(CreateReportOptions()));
+
+        // Act
+        var report = await service.BuildAsync(progress, cts.Token);
+
+        // Assert
+        searchCalls.Should().Be(1);
+        loadCalls.Should().Be(1);
+        report.IsGroupedByTeam.Should().BeFalse();
+        report.Title.Should().Be("QA Queue");
+        report.Jql.Should().Be("project = QA");
+        report.TargetBranch.Should().Be(new BranchName("main"));
+        report.NoCodeIssues.Should().ContainSingle().Which.Key.Should().Be(new JiraIssueKey("QA-1"));
+        report.Repositories.Should().ContainSingle();
+        report.Repositories[0].RepositoryFullName.Should().Be(new RepositoryFullName("workspace/repo-a"));
+        report.Repositories[0].WithoutTargetMerge.Should().ContainSingle();
+        report.Repositories[0].WithoutTargetMerge[0].BranchNames.Should().ContainSingle().Which.Should().Be(new BranchName("feature/qa-2"));
+        report.Teams.Should().BeEmpty();
+        progressReports.Should().Contain(reportUpdate => reportUpdate.Kind == QaQueueBuildProgressKind.JiraSearchStarted);
+        progressReports.Should().Contain(reportUpdate => reportUpdate.Kind == QaQueueBuildProgressKind.JiraSearchCompleted);
+        progressReports.Should().Contain(reportUpdate => reportUpdate.Message == "Loader callback");
+    }
+
+    [Fact(DisplayName = "BuildAsync groups issues into team sections when team field is configured")]
+    [Trait("Category", "Unit")]
+    public async Task BuildAsyncWhenTeamGroupingIsEnabledBuildsTeamSections()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var noCodeIssue = TestData.CreateIssue(2001, "QA-10", developmentSummary: /*lang=json,strict*/ """{}""", teams: [new TeamName("Core")]);
+        var codeIssue = TestData.CreateIssue(2002, "QA-11", status: "In QA", developmentSummary: /*lang=json,strict*/ """{"branches":1}""", teams: [new TeamName("Core")]);
+        var searchCalls = 0;
+        var loadCalls = 0;
+
+        var jiraIssueSearchClient = new Mock<IJiraIssueSearchClient>(MockBehavior.Strict);
+        jiraIssueSearchClient
+            .Setup(client => client.SearchIssuesAsync(It.Is<CancellationToken>(token => token == cts.Token)))
+            .Callback(() => searchCalls++)
+            .ReturnsAsync([noCodeIssue, codeIssue]);
+
+        var codeIssueDetailsLoader = new Mock<IQaCodeIssueDetailsLoader>(MockBehavior.Strict);
+        codeIssueDetailsLoader
+            .Setup(loader => loader.LoadAsync(
+                It.Is<IReadOnlyList<QaIssue>>(issues => issues.Count == 1 && issues[0] == codeIssue),
+                It.Is<IProgress<QaQueueBuildProgress>?>(reporter => reporter == null),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .Callback(() => loadCalls++)
+            .ReturnsAsync(
+            [
+                new ProcessedCodeIssue(
+                    codeIssue,
+                    [
+                new RepositoryResolution(
+                            new RepositoryFullName("workspace/repo-b"),
+                            new RepositorySlug("repo-b"),
+                            new IssueWithoutMergeData([], [new BranchName("feature/qa-11")]),
+                            null)
+                    ])
+            ]);
+
+        var service = new QaQueueReportService(
+            jiraIssueSearchClient.Object,
+            codeIssueDetailsLoader.Object,
+            Options.Create(CreateJiraOptions(teamField: "Team")),
+            Options.Create(CreateReportOptions()));
+
+        // Act
+        var report = await service.BuildAsync(progress: null, cts.Token);
+
+        // Assert
+        searchCalls.Should().Be(1);
+        loadCalls.Should().Be(1);
+        report.IsGroupedByTeam.Should().BeTrue();
+        report.Repositories.Should().BeEmpty();
+        report.Teams.Should().ContainSingle();
+        report.Teams[0].Team.Should().Be(new TeamName("Core"));
+        report.Teams[0].NoCodeIssues.Should().ContainSingle().Which.Key.Should().Be(new JiraIssueKey("QA-10"));
+        report.Teams[0].Repositories.Should().ContainSingle();
+        report.Teams[0].Repositories[0].RepositorySlug.Should().Be(new RepositorySlug("repo-b"));
+    }
+
+    [Fact(DisplayName = "BuildAsync hides team sections with only no-code issues when configured")]
+    [Trait("Category", "Unit")]
+    public async Task BuildAsyncWhenHideNoCodeIssuesIsEnabledSkipsTeamsWithoutRepositories()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var noCodeIssue = TestData.CreateIssue(3001, "QA-20", developmentSummary: /*lang=json,strict*/ """{}""", teams: [new TeamName("Core")]);
+
+        var jiraIssueSearchClient = new Mock<IJiraIssueSearchClient>(MockBehavior.Strict);
+        jiraIssueSearchClient
+            .Setup(client => client.SearchIssuesAsync(It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync([noCodeIssue]);
+
+        var codeIssueDetailsLoader = new Mock<IQaCodeIssueDetailsLoader>(MockBehavior.Strict);
+        codeIssueDetailsLoader
+            .Setup(loader => loader.LoadAsync(
+                It.Is<IReadOnlyList<QaIssue>>(issues => issues.Count == 0),
+                It.Is<IProgress<QaQueueBuildProgress>?>(reporter => reporter == null),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync([]);
+
+        var service = new QaQueueReportService(
+            jiraIssueSearchClient.Object,
+            codeIssueDetailsLoader.Object,
+            Options.Create(CreateJiraOptions(teamField: "Team")),
+            Options.Create(CreateReportOptions(hideNoCodeIssues: true)));
+
+        // Act
+        var report = await service.BuildAsync(progress: null, cts.Token);
+
+        // Assert
+        report.IsGroupedByTeam.Should().BeTrue();
+        report.NoCodeIssues.Should().ContainSingle().Which.Key.Should().Be(new JiraIssueKey("QA-20"));
+        report.Teams.Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "BuildAsync skips empty team sections when processed issues yield no repository entries")]
+    [Trait("Category", "Unit")]
+    public async Task BuildAsyncWhenProcessedIssueHasNoResolutionsSkipsEmptyTeamSection()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var codeIssue = TestData.CreateIssue(3002, "QA-21", developmentSummary: /*lang=json,strict*/ """{"pullRequests":1}""", teams: [new TeamName("Core")]);
+
+        var jiraIssueSearchClient = new Mock<IJiraIssueSearchClient>(MockBehavior.Strict);
+        jiraIssueSearchClient
+            .Setup(client => client.SearchIssuesAsync(It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync([codeIssue]);
+
+        var codeIssueDetailsLoader = new Mock<IQaCodeIssueDetailsLoader>(MockBehavior.Strict);
+        codeIssueDetailsLoader
+            .Setup(loader => loader.LoadAsync(
+                It.Is<IReadOnlyList<QaIssue>>(issues => issues.Count == 1 && issues[0] == codeIssue),
+                It.Is<IProgress<QaQueueBuildProgress>?>(reporter => reporter == null),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync([new ProcessedCodeIssue(codeIssue, [])]);
+
+        var service = new QaQueueReportService(
+            jiraIssueSearchClient.Object,
+            codeIssueDetailsLoader.Object,
+            Options.Create(CreateJiraOptions(teamField: "Team")),
+            Options.Create(CreateReportOptions()));
+
+        // Act
+        var report = await service.BuildAsync(progress: null, cts.Token);
+
+        // Assert
+        report.IsGroupedByTeam.Should().BeTrue();
+        report.NoCodeIssues.Should().BeEmpty();
+        report.Teams.Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "BuildAsync builds merged repository rows when code issues resolve target branch merges")]
+    [Trait("Category", "Unit")]
+    public async Task BuildAsyncWhenIssueHasMergedRepositoriesBuildsMergedRows()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var codeIssue = TestData.CreateIssue(3003, "QA-22", status: "In QA", developmentSummary: /*lang=json,strict*/ """{"pullRequests":1}""");
+        var pullRequest = TestData.CreateBitbucketPullRequest(
+            id: 88,
+            repositoryFullName: "workspace/repo-c",
+            repositoryDisplayName: "Repo C",
+            repositorySlug: "repo-c",
+            sourceBranch: "feature/qa-22",
+            destinationBranch: "main",
+            updatedOn: new DateTimeOffset(2026, 3, 20, 13, 0, 0, TimeSpan.Zero));
+
+        var jiraIssueSearchClient = new Mock<IJiraIssueSearchClient>(MockBehavior.Strict);
+        jiraIssueSearchClient
+            .Setup(client => client.SearchIssuesAsync(It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync([codeIssue]);
+
+        var codeIssueDetailsLoader = new Mock<IQaCodeIssueDetailsLoader>(MockBehavior.Strict);
+        codeIssueDetailsLoader
+            .Setup(loader => loader.LoadAsync(
+                It.Is<IReadOnlyList<QaIssue>>(issues => issues.Count == 1 && issues[0] == codeIssue),
+                It.Is<IProgress<QaQueueBuildProgress>?>(reporter => reporter == null),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync(
+            [
+                new ProcessedCodeIssue(
+                    codeIssue,
+                    [
+                        new RepositoryResolution(
+                            new RepositoryFullName("workspace/repo-c"),
+                            new RepositorySlug("repo-c"),
+                            null,
+                            new MergedIssueData(pullRequest, new ArtifactVersion("2.3.4")))
+                    ])
+            ]);
+
+        var service = new QaQueueReportService(
+            jiraIssueSearchClient.Object,
+            codeIssueDetailsLoader.Object,
+            Options.Create(CreateJiraOptions()),
+            Options.Create(CreateReportOptions()));
+
+        // Act
+        var report = await service.BuildAsync(progress: null, cts.Token);
+
+        // Assert
+        report.IsGroupedByTeam.Should().BeFalse();
+        report.Repositories.Should().ContainSingle();
+        report.Repositories[0].WithoutTargetMerge.Should().BeEmpty();
+        report.Repositories[0].MergedIssueRows.Should().ContainSingle();
+        report.Repositories[0].MergedIssueRows[0].Issue.Key.Should().Be(new JiraIssueKey("QA-22"));
+        report.Repositories[0].MergedIssueRows[0].Version.Should().Be(new ArtifactVersion("2.3.4"));
+        report.Repositories[0].MergedIssueRows[0].PullRequests.Should().ContainSingle().Which.PullRequestId.Should().Be(new PullRequestId(88));
+    }
+
+    private static JiraOptions CreateJiraOptions(string teamField = "")
+    {
+        return new JiraOptions
+        {
+            BaseUrl = new Uri("https://jira.example.test/", UriKind.Absolute),
+            Email = "qa@example.test",
+            ApiToken = "token",
+            Jql = "project = QA",
+            DevelopmentField = "development",
+            TeamField = teamField,
+            MaxResultsPerPage = 50,
+            RetryCount = 0,
+            BitbucketApplicationType = "bitbucket",
+            PullRequestDataType = "pullrequest",
+            BranchDataType = "branch"
+        };
+    }
+
+    private static ReportOptions CreateReportOptions(bool hideNoCodeIssues = false)
+    {
+        return new ReportOptions
+        {
+            Title = "QA Queue",
+            TargetBranch = "main",
+            PdfOutputPath = "qa-queue-report.pdf",
+            ExcelOutputPath = "qa-queue-report.xlsx",
+            MaxParallelism = 2,
+            HideNoCodeIssues = hideNoCodeIssues,
+            OpenAfterGeneration = false
+        };
+    }
+}

@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="QAQueueManager.csproj" />
+  <Project Path="QAQueueManager.Tests\QAQueueManager.Tests.csproj" />
 </Solution>

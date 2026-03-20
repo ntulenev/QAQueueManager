@@ -40,4 +40,10 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="QAQueueManager.Tests\\**\\*.cs" />
+    <EmbeddedResource Remove="QAQueueManager.Tests\\**\\*" />
+    <None Remove="QAQueueManager.Tests\\**\\*" />
+  </ItemGroup>
+
 </Project>
