@@ -145,7 +145,7 @@ internal sealed class OpenXmlWorkbookFormatter : IWorkbookFormatter
             },
         };
 
-    private static void ApplyColumnWidths(Worksheet worksheet, IReadOnlyDictionary<int, double> columnWidths)
+    private static void ApplyColumnWidths(Worksheet worksheet, Dictionary<int, double> columnWidths)
     {
         if (columnWidths.Count == 0)
         {
@@ -198,7 +198,7 @@ internal sealed class OpenXmlWorkbookFormatter : IWorkbookFormatter
         }
     }
 
-    private static void ApplyHyperlinks(WorksheetPart worksheetPart, IReadOnlyDictionary<string, string> hyperlinks)
+    private static void ApplyHyperlinks(WorksheetPart worksheetPart, Dictionary<string, string> hyperlinks)
     {
         if (hyperlinks.Count == 0)
         {

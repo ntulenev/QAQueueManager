@@ -96,8 +96,15 @@ internal sealed class QaQueueApplication : IQaQueueApplication
             .ConfigureAwait(false);
 
         ArgumentNullException.ThrowIfNull(report);
-        ArgumentNullException.ThrowIfNull(pdfPath);
-        ArgumentNullException.ThrowIfNull(excelPath);
+        if (!pdfPath.HasValue)
+        {
+            throw new InvalidOperationException("PDF path was not produced.");
+        }
+
+        if (!excelPath.HasValue)
+        {
+            throw new InvalidOperationException("Excel path was not produced.");
+        }
 
         _presentationService.Render(report);
 
@@ -197,6 +204,8 @@ internal sealed class QaQueueApplication : IQaQueueApplication
                         _codeTask.MaxValue = Math.Max(update.Total, 1);
                         _codeTask.Value = Math.Max(update.Total, 1);
                         _codeTask.Description = $"[green]Analyze code-linked issues[/] {FormatMessage(update.Message)}";
+                        break;
+                    default:
                         break;
                 }
             }

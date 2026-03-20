@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using QAQueueManager.Abstractions;
 using QAQueueManager.Models.Domain;
 
@@ -22,7 +24,7 @@ internal sealed class ExcelReportFileStore : IExcelReportFileStore
         var directory = Path.GetDirectoryName(resolvedPath.Value);
         if (!string.IsNullOrWhiteSpace(directory))
         {
-            Directory.CreateDirectory(directory);
+            _ = Directory.CreateDirectory(directory);
         }
 
         contentStream.Position = 0;
@@ -42,7 +44,7 @@ internal sealed class ExcelReportFileStore : IExcelReportFileStore
         var directory = Path.GetDirectoryName(absolutePath) ?? Environment.CurrentDirectory;
         var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(absolutePath);
         var finalExtension = Path.GetExtension(absolutePath);
-        var suffix = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var suffix = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
 
         return new ReportFilePath(Path.Combine(directory, $"{fileNameWithoutExtension}_{suffix}{finalExtension}"));
     }

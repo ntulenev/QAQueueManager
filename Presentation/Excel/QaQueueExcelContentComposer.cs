@@ -200,7 +200,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                     item.Issue.Status,
                     FormatMergedPullRequests(item.PullRequests),
                     item.Version,
-                    item.HasMultipleVersions ? MultiVersionAlertText : "-",
+                    item.HasMultipleVersions ? MULTI_VERSION_ALERT_TEXT : "-",
                     FormatBranchNames(item.PullRequests.Select(static pr => pr.SourceBranch)),
                     FormatBranchNames(item.PullRequests.Select(static pr => pr.DestinationBranch)),
                     FormatDate(item.Issue.UpdatedAt),
@@ -231,8 +231,8 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
 
     private static Dictionary<string, object?> CreateGridRow(params object?[] values)
     {
-        var row = new Dictionary<string, object?>(SheetColumnCount, StringComparer.Ordinal);
-        for (var columnIndex = 1; columnIndex <= SheetColumnCount; columnIndex++)
+        var row = new Dictionary<string, object?>(SHEET_COLUMN_COUNT, StringComparer.Ordinal);
+        for (var columnIndex = 1; columnIndex <= SHEET_COLUMN_COUNT; columnIndex++)
         {
             row.Add("C" + columnIndex.ToString(CultureInfo.InvariantCulture), columnIndex <= values.Length ? values[columnIndex - 1] ?? string.Empty : string.Empty);
         }
@@ -320,23 +320,12 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
 
     private static string FormatPullRequests(IReadOnlyList<JiraPullRequestLink> pullRequests)
     {
-        if (pullRequests.Count == 0)
-        {
-            return "-";
-        }
-
-        return string.Join(", ", pullRequests.Select(static pr => $"#{pr.Id}:{pr.Status}->{pr.DestinationBranch}"));
+        return pullRequests.Count == 0
+            ? "-"
+            : string.Join(", ", pullRequests.Select(static pr => $"#{pr.Id}:{pr.Status}->{pr.DestinationBranch}"));
     }
 
-    private static string FormatMergedPullRequests(IReadOnlyList<QaMergedPullRequest> pullRequests)
-    {
-        if (pullRequests.Count == 0)
-        {
-            return "-";
-        }
-
-        return string.Join(", ", pullRequests.Select(static pr => $"#{pr.PullRequestId}"));
-    }
+    private static string FormatMergedPullRequests(IReadOnlyList<QaMergedPullRequest> pullRequests) => pullRequests.Count == 0 ? "-" : string.Join(", ", pullRequests.Select(static pr => $"#{pr.PullRequestId}"));
 
     private static string FormatBranchNames(IEnumerable<string> branchNames)
     {
@@ -361,6 +350,6 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         List<Dictionary<string, object?>> Rows,
         ExcelSheetLayout Layout);
 
-    private const int SheetColumnCount = 11;
-    private const string MultiVersionAlertText = "MULTI-VERSION";
+    private const int SHEET_COLUMN_COUNT = 11;
+    private const string MULTI_VERSION_ALERT_TEXT = "MULTI-VERSION";
 }

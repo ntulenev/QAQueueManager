@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 
 using Microsoft.Extensions.Options;
 
-using QAQueueManager.API;
 using QAQueueManager.Abstractions;
 using QAQueueManager.Models.Configuration;
 using QAQueueManager.Models.Domain;
@@ -228,7 +227,7 @@ internal sealed class QaQueueReportService : IQaQueueReportService
                             candidate.Url,
                             null,
                             candidate.LastUpdatedOn),
-                        VersionNotFound)));
+                        VERSION_NOT_FOUND)));
                 continue;
             }
 
@@ -260,17 +259,17 @@ internal sealed class QaQueueReportService : IQaQueueReportService
     {
         if (pullRequest.MergeCommitHash is null)
         {
-            return VersionNotFound;
+            return VERSION_NOT_FOUND;
         }
 
         var tags = await _bitbucketClient
             .GetTagsByCommitHashAsync(pullRequest.RepositorySlug, pullRequest.MergeCommitHash.Value, cancellationToken)
             .ConfigureAwait(false);
 
-        return tags.Count == 0 ? VersionNotFound : tags[0].Name;
+        return tags.Count == 0 ? VERSION_NOT_FOUND : tags[0].Name;
     }
 
-    private IReadOnlyList<QaTeamSection> BuildTeamSections(
+    private List<QaTeamSection> BuildTeamSections(
         IReadOnlyList<QaIssue> noCodeIssues,
         IEnumerable<ProcessedCodeIssue> processedIssues)
     {
@@ -326,7 +325,7 @@ internal sealed class QaQueueReportService : IQaQueueReportService
         return result;
     }
 
-    private static IReadOnlyList<QaRepositorySection> BuildRepositorySections(IEnumerable<ProcessedCodeIssue> processedIssues)
+    private static List<QaRepositorySection> BuildRepositorySections(IEnumerable<ProcessedCodeIssue> processedIssues)
     {
         var repositories = new Dictionary<string, RepositoryAccumulator>(StringComparer.OrdinalIgnoreCase);
 
@@ -359,10 +358,9 @@ internal sealed class QaQueueReportService : IQaQueueReportService
             }
         }
 
-        return repositories.Values
+        return [.. repositories.Values
             .Select(static accumulator => accumulator.Build())
-            .OrderBy(static section => section.RepositoryFullName, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            .OrderBy(static section => section.RepositoryFullName, StringComparer.OrdinalIgnoreCase)];
     }
 
     private static void AddWithoutMerge(
@@ -420,15 +418,15 @@ internal sealed class QaQueueReportService : IQaQueueReportService
         return accumulator;
     }
 
-    private static IReadOnlyList<string> GetIssueTeams(QaIssue issue)
+    private static List<string> GetIssueTeams(QaIssue issue)
     {
         var teams = issue.GetNormalizedTeams();
 
-        return teams.Count == 0 ? [NoTeam] : teams;
+        return teams.Count == 0 ? [NO_TEAM] : [.. teams];
     }
 
-    private const string VersionNotFound = "Version not found";
-    private const string NoTeam = "No team";
+    private const string VERSION_NOT_FOUND = "Version not found";
+    private const string NO_TEAM = "No team";
     private readonly IJiraIssueSearchClient _jiraIssueSearchClient;
     private readonly IJiraDevelopmentClient _jiraDevelopmentClient;
     private readonly IBitbucketClient _bitbucketClient;

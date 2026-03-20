@@ -1,8 +1,9 @@
-using Spectre.Console;
+using System.Globalization;
 
 using QAQueueManager.Abstractions;
-using QAQueueManager.Logic;
 using QAQueueManager.Models.Domain;
+
+using Spectre.Console;
 
 namespace QAQueueManager.Presentation;
 
@@ -94,7 +95,7 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
         {
             var issue = issues[index];
             _ = table.AddRow(
-                (index + 1).ToString(),
+                (index + 1).ToString(CultureInfo.InvariantCulture),
                 Escape(issue.Key),
                 Escape(issue.Status),
                 Escape(FormatDate(issue.UpdatedAt)),
@@ -126,7 +127,7 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
             {
                 var item = repository.WithoutTargetMerge[index];
                 _ = table.AddRow(
-                    (index + 1).ToString(),
+                    (index + 1).ToString(CultureInfo.InvariantCulture),
                     Escape(item.Issue.Key),
                     Escape(item.Issue.Status),
                     Escape(FormatPullRequests(item.PullRequests)),
@@ -161,7 +162,7 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
         {
             var item = repository.MergedIssueRows[index];
             _ = mergedTable.AddRow(
-                (index + 1).ToString(),
+                (index + 1).ToString(CultureInfo.InvariantCulture),
                 FormatIssueCell(item),
                 Escape(item.Issue.Status),
                 Escape(FormatMergedPullRequests(item.PullRequests)),
@@ -179,25 +180,14 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
 
     private static string FormatPullRequests(IReadOnlyList<JiraPullRequestLink> pullRequests)
     {
-        if (pullRequests.Count == 0)
-        {
-            return "-";
-        }
-
-        return string.Join(
+        return pullRequests.Count == 0
+            ? "-"
+            : string.Join(
             ", ",
             pullRequests.Select(static pr => $"#{pr.Id}:{pr.Status}->{pr.DestinationBranch}"));
     }
 
-    private static string FormatMergedPullRequests(IReadOnlyList<QaMergedPullRequest> pullRequests)
-    {
-        if (pullRequests.Count == 0)
-        {
-            return "-";
-        }
-
-        return string.Join(", ", pullRequests.Select(static pr => $"#{pr.PullRequestId}"));
-    }
+    private static string FormatMergedPullRequests(IReadOnlyList<QaMergedPullRequest> pullRequests) => pullRequests.Count == 0 ? "-" : string.Join(", ", pullRequests.Select(static pr => $"#{pr.PullRequestId}"));
 
     private static string FormatBranchNames(IEnumerable<string> branchNames)
     {
@@ -210,7 +200,7 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
     }
 
     private static string FormatDate(DateTimeOffset? value) =>
-        value?.ToString("yyyy-MM-dd HH:mm") ?? "-";
+        value?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "-";
 
     private static string FormatIssueCell(QaMergedIssueVersionRow item) =>
         item.HasMultipleVersions

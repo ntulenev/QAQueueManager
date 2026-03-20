@@ -23,16 +23,10 @@ internal sealed class TeamNameComparer : IComparer<string>
             return 0;
         }
 
-        if (string.Equals(x, "No team", StringComparison.OrdinalIgnoreCase))
-        {
-            return 1;
-        }
-
-        if (string.Equals(y, "No team", StringComparison.OrdinalIgnoreCase))
-        {
-            return -1;
-        }
-
-        return string.Compare(x, y, StringComparison.OrdinalIgnoreCase);
+        return string.Equals(x, "No team", StringComparison.OrdinalIgnoreCase)
+            ? 1
+            : string.Equals(y, "No team", StringComparison.OrdinalIgnoreCase)
+            ? -1
+            : string.Compare(x, y, StringComparison.OrdinalIgnoreCase);
     }
 }

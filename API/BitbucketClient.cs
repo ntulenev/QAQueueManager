@@ -131,7 +131,7 @@ internal sealed class BitbucketClient : IBitbucketClient
         }
 
         var tags = new List<BitbucketTag>();
-        Uri? next = new Uri(
+        var next = new Uri(
             $"repositories/{_options.Workspace}/{Uri.EscapeDataString(repositorySlug.Value)}/refs/tags?pagelen=100",
             UriKind.Relative);
 
@@ -176,17 +176,11 @@ internal sealed class BitbucketClient : IBitbucketClient
 
     private static Uri? CreateNextUri(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        if (Uri.TryCreate(value, UriKind.Absolute, out var absolute))
-        {
-            return absolute;
-        }
-
-        return Uri.TryCreate(value, UriKind.Relative, out var relative)
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : Uri.TryCreate(value, UriKind.Absolute, out var absolute)
+            ? absolute
+            : Uri.TryCreate(value, UriKind.Relative, out var relative)
             ? relative
             : null;
     }

@@ -51,7 +51,7 @@ internal sealed class VersionNameComparer : IComparer<string>
         return string.Compare(y, x, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static IReadOnlyList<int> ExtractNumbers(string value)
+    private static List<int> ExtractNumbers(string value)
     {
         var numbers = new List<int>();
         var current = 0;

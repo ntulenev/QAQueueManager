@@ -52,9 +52,7 @@ internal readonly record struct ExcelSheetName
     /// <returns>A valid worksheet name.</returns>
     public static ExcelSheetName Sanitize(string? value, string fallback = "Sheet")
     {
-        var filtered = new string((value ?? string.Empty)
-            .Where(static ch => !"\\/?*[]:".Contains(ch))
-            .ToArray())
+        var filtered = new string([.. (value ?? string.Empty).Where(static ch => !"\\/?*[]:".Contains(ch, StringComparison.Ordinal))])
             .Trim();
 
         if (filtered.Length == 0)
@@ -78,16 +76,10 @@ internal readonly record struct ExcelSheetName
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
         var normalized = value.Trim();
-        if (normalized.Length > 31)
-        {
-            throw new ArgumentException("Excel worksheet name must be 31 characters or fewer.", nameof(value));
-        }
-
-        if (normalized.IndexOfAny(['\\', '/', '?', '*', '[', ']', ':']) >= 0)
-        {
-            throw new ArgumentException("Excel worksheet name contains invalid characters.", nameof(value));
-        }
-
-        return normalized;
+        return normalized.Length > 31
+            ? throw new ArgumentException("Excel worksheet name must be 31 characters or fewer.", nameof(value))
+            : normalized.IndexOfAny(['\\', '/', '?', '*', '[', ']', ':']) >= 0
+            ? throw new ArgumentException("Excel worksheet name contains invalid characters.", nameof(value))
+            : normalized;
     }
 }

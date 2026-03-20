@@ -145,13 +145,10 @@ internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
         CancellationToken cancellationToken)
     {
         var fields = await ResolveConfiguredFieldsAsync(configuredField, cancellationToken).ConfigureAwait(false);
-        if (fields.Count == 0)
-        {
-            throw new InvalidOperationException(
-                $"Unable to resolve Jira field '{configuredField}'.");
-        }
-
-        return fields[0];
+        return fields.Count == 0
+            ? throw new InvalidOperationException(
+                $"Unable to resolve Jira field '{configuredField}'.")
+            : fields[0];
     }
 
     private async Task<IReadOnlyList<string>> ResolveConfiguredFieldsAsync(
@@ -182,7 +179,7 @@ internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
         return apiFields;
     }
 
-    private async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetFieldLookupAsync(CancellationToken cancellationToken)
+    private async Task<Dictionary<string, IReadOnlyList<string>>> GetFieldLookupAsync(CancellationToken cancellationToken)
     {
         if (_fieldLookup is not null)
         {
@@ -198,7 +195,7 @@ internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
         return _fieldLookup;
     }
 
-    private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildFieldLookup(IEnumerable<JiraFieldDefinitionResponse> fields)
+    private static Dictionary<string, IReadOnlyList<string>> BuildFieldLookup(IEnumerable<JiraFieldDefinitionResponse> fields)
     {
         var result = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
@@ -226,7 +223,7 @@ internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
             StringComparer.OrdinalIgnoreCase);
     }
 
-    private static void AddAlias(IDictionary<string, List<string>> lookup, string? alias, string apiField)
+    private static void AddAlias(Dictionary<string, List<string>> lookup, string? alias, string apiField)
     {
         if (string.IsNullOrWhiteSpace(alias))
         {
@@ -257,8 +254,8 @@ internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
         return value;
     }
 
-    private static IReadOnlyList<QaIssue> MapIssues(
-        IReadOnlyList<JiraIssueResponse> issues,
+    private static List<QaIssue> MapIssues(
+        List<JiraIssueResponse> issues,
         string developmentApiField,
         IReadOnlyList<string> teamApiFields)
     {
@@ -274,10 +271,10 @@ internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
             }
 
             var values = issue.Fields?.Values ?? [];
-            values.TryGetValue("summary", out var summaryElement);
-            values.TryGetValue("status", out var statusElement);
-            values.TryGetValue("updated", out var updatedElement);
-            values.TryGetValue(developmentApiField, out var developmentElement);
+            _ = values.TryGetValue("summary", out var summaryElement);
+            _ = values.TryGetValue("status", out var statusElement);
+            _ = values.TryGetValue("updated", out var updatedElement);
+            _ = values.TryGetValue(developmentApiField, out var developmentElement);
 
             var summary = ExtractDisplayValue(summaryElement) ?? "-";
             var status = ExtractDisplayValue(statusElement) ?? "-";
@@ -291,8 +288,8 @@ internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
         return result;
     }
 
-    private static IReadOnlyList<string> ExtractTeams(
-        IReadOnlyDictionary<string, JsonElement> values,
+    private static List<string> ExtractTeams(
+        Dictionary<string, JsonElement> values,
         IReadOnlyList<string> teamApiFields)
     {
         if (teamApiFields.Count == 0)
@@ -323,41 +320,39 @@ internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
 
     private static string? ExtractDisplayValue(JsonElement element)
     {
-        if (element.ValueKind == JsonValueKind.Undefined || element.ValueKind == JsonValueKind.Null)
-        {
-            return null;
-        }
-
-        return element.ValueKind switch
-        {
-            JsonValueKind.String => element.GetString(),
-            JsonValueKind.Number => element.ToString(),
-            JsonValueKind.True => bool.TrueString,
-            JsonValueKind.False => bool.FalseString,
-            JsonValueKind.Object => ExtractObjectValue(element),
-            JsonValueKind.Array => string.Join(
-                ", ",
-                element.EnumerateArray()
-                    .Select(ExtractDisplayValue)
-                    .Where(static value => !string.IsNullOrWhiteSpace(value))),
-            _ => element.ToString()
-        };
+        return element.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null
+            ? null
+            : element.ValueKind switch
+            {
+                JsonValueKind.String => element.GetString(),
+                JsonValueKind.Number => element.ToString(),
+                JsonValueKind.True => bool.TrueString,
+                JsonValueKind.False => bool.FalseString,
+                JsonValueKind.Object => ExtractObjectValue(element),
+                JsonValueKind.Array => string.Join(
+                    ", ",
+                    element.EnumerateArray()
+                        .Select(ExtractDisplayValue)
+                        .Where(static value => !string.IsNullOrWhiteSpace(value))),
+                JsonValueKind.Undefined => throw new NotImplementedException(),
+                JsonValueKind.Null => throw new NotImplementedException(),
+                _ => element.ToString()
+            };
     }
 
     private static IReadOnlyList<string> ExtractDisplayValues(JsonElement element)
     {
-        if (element.ValueKind == JsonValueKind.Undefined || element.ValueKind == JsonValueKind.Null)
+        if (element.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
         {
             return [];
         }
 
         if (element.ValueKind == JsonValueKind.Array)
         {
-            return element.EnumerateArray()
+            return [.. element.EnumerateArray()
                 .SelectMany(ExtractDisplayValues)
                 .Where(static value => !string.IsNullOrWhiteSpace(value))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+                .Distinct(StringComparer.OrdinalIgnoreCase)];
         }
 
         var value = ExtractDisplayValue(element);
@@ -400,6 +395,6 @@ internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
 
     private readonly JiraTransport _transport;
     private readonly JiraOptions _options;
-    private IReadOnlyDictionary<string, IReadOnlyList<string>>? _fieldLookup;
+    private Dictionary<string, IReadOnlyList<string>>? _fieldLookup;
     private readonly Dictionary<string, IReadOnlyList<string>> _resolvedFields = new(StringComparer.OrdinalIgnoreCase);
 }

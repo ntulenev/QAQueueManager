@@ -62,16 +62,10 @@ internal readonly record struct CommitHash
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
         var normalized = value.Trim();
-        if (normalized.Length is < 7 or > 40)
-        {
-            throw new ArgumentException("Commit hash must be between 7 and 40 hex characters.", nameof(value));
-        }
-
-        if (normalized.Any(static ch => !Uri.IsHexDigit(ch)))
-        {
-            throw new ArgumentException("Commit hash must contain only hexadecimal characters.", nameof(value));
-        }
-
-        return normalized;
+        return normalized.Length is < 7 or > 40
+            ? throw new ArgumentException("Commit hash must be between 7 and 40 hex characters.", nameof(value))
+            : normalized.Any(static ch => !Uri.IsHexDigit(ch))
+            ? throw new ArgumentException("Commit hash must contain only hexadecimal characters.", nameof(value))
+            : normalized;
     }
 }

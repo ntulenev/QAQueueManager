@@ -39,13 +39,9 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
         CancellationToken cancellationToken)
     {
         var detail = await GetDetailsAsync(issueId, _options.PullRequestDataType, cancellationToken).ConfigureAwait(false);
-        if (detail.Count == 0)
-        {
-            return [];
-        }
-
-        return
-        [
+        return detail.Count == 0
+            ? []
+            : [
             .. detail
                 .SelectMany(static item => item.PullRequests)
                 .Select(MapPullRequest)
@@ -67,13 +63,9 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
         CancellationToken cancellationToken)
     {
         var detail = await GetDetailsAsync(issueId, _options.BranchDataType, cancellationToken).ConfigureAwait(false);
-        if (detail.Count == 0)
-        {
-            return [];
-        }
-
-        return
-        [
+        return detail.Count == 0
+            ? []
+            : [
             .. detail
                 .SelectMany(static item => item.Branches)
                 .Select(MapBranch)
@@ -137,26 +129,15 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
     private static JiraBranchLink? MapBranch(JiraBranchDto dto)
     {
         var repositoryFullName = NormalizeRepositoryName(dto.Repository?.Name);
-        if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(repositoryFullName))
-        {
-            return null;
-        }
-
-        return new JiraBranchLink(
+        return string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(repositoryFullName)
+            ? null
+            : new JiraBranchLink(
             dto.Name.Trim(),
             repositoryFullName,
             dto.Repository?.Url?.Trim() ?? string.Empty);
     }
 
-    private static string NormalizeRepositoryName(string? repositoryName)
-    {
-        if (string.IsNullOrWhiteSpace(repositoryName))
-        {
-            return string.Empty;
-        }
-
-        return repositoryName.Trim().Replace('\\', '/');
-    }
+    private static string NormalizeRepositoryName(string? repositoryName) => string.IsNullOrWhiteSpace(repositoryName) ? string.Empty : repositoryName.Trim().Replace('\\', '/');
 
     private readonly JiraTransport _transport;
     private readonly JiraOptions _options;

@@ -27,11 +27,8 @@ internal readonly record struct ReportFilePath
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
         var normalized = value.Trim();
-        if (string.IsNullOrWhiteSpace(Path.GetFileName(normalized)))
-        {
-            throw new ArgumentException("Report file path must include a file name.", nameof(value));
-        }
-
-        return normalized;
+        return string.IsNullOrWhiteSpace(Path.GetFileName(normalized))
+            ? throw new ArgumentException("Report file path must include a file name.", nameof(value))
+            : normalized;
     }
 }

@@ -58,7 +58,7 @@ internal sealed class RepositoryAccumulator
         return new QaRepositorySection(RepositoryFullName, RepositorySlug, withoutMerge, mergedRows);
     }
 
-    private static IReadOnlyList<QaMergedIssueVersionRow> BuildMergedIssueRows(IGrouping<JiraIssueId, PendingMergedIssue> group)
+    private static List<QaMergedIssueVersionRow> BuildMergedIssueRows(IGrouping<JiraIssueId, PendingMergedIssue> group)
     {
         var items = group.ToList();
         var sample = items[0];
@@ -77,7 +77,7 @@ internal sealed class RepositoryAccumulator
             .ToList();
         var hasMultipleVersions = versions.Count > 1;
 
-        return versions
+        return [.. versions
             .Select(version => new QaMergedIssueVersionRow(
                 sample.Issue,
                 sample.RepositoryFullName,
@@ -87,10 +87,9 @@ internal sealed class RepositoryAccumulator
                     .Where(pr => string.Equals(NormalizeVersion(pr.Version), version, StringComparison.OrdinalIgnoreCase))
                     .OrderByDescending(static pr => pr.PullRequestUpdatedOn ?? DateTimeOffset.MinValue)
                     .ThenByDescending(static pr => pr.PullRequestId)],
-                hasMultipleVersions))
-            .ToList();
+                hasMultipleVersions))];
     }
 
     private static string NormalizeVersion(string? version) =>
-        string.IsNullOrWhiteSpace(version) ? QaQueueReportServiceVersionTokens.VersionNotFound : version.Trim();
+        string.IsNullOrWhiteSpace(version) ? QaQueueReportServiceVersionTokens.VERSION_NOT_FOUND : version.Trim();
 }

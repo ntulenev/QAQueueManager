@@ -49,16 +49,10 @@ internal readonly record struct RepositorySlug
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
         var normalized = value.Trim();
-        if (normalized.Contains('/') || normalized.Contains('\\'))
-        {
-            throw new ArgumentException("Repository slug must not contain path separators.", nameof(value));
-        }
-
-        if (normalized.Any(char.IsWhiteSpace))
-        {
-            throw new ArgumentException("Repository slug must not contain whitespace.", nameof(value));
-        }
-
-        return normalized;
+        return normalized.Contains('/', StringComparison.Ordinal) || normalized.Contains('\\', StringComparison.Ordinal)
+            ? throw new ArgumentException("Repository slug must not contain path separators.", nameof(value))
+            : normalized.Any(char.IsWhiteSpace)
+            ? throw new ArgumentException("Repository slug must not contain whitespace.", nameof(value))
+            : normalized;
     }
 }

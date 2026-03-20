@@ -1,13 +1,14 @@
-using QuestPDF.Fluent;
-using QuestPDF.Helpers;
-using QuestPDF.Infrastructure;
+using System.Globalization;
 
 using Microsoft.Extensions.Options;
 
 using QAQueueManager.Abstractions;
 using QAQueueManager.Models.Configuration;
 using QAQueueManager.Models.Domain;
-using QAQueueManager.Logic;
+
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace QAQueueManager.Presentation.Pdf;
 
@@ -42,7 +43,7 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
 
         return Document.Create(container =>
         {
-            container.Page(page =>
+            _ = container.Page(page =>
             {
                 page.Size(PageSizes.A4.Landscape());
                 page.Margin(20);
@@ -243,21 +244,12 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
         });
     }
 
-    private static void ComposeRow(TableDescriptor table, int index, params string[] values)
-    {
-        _ = table.Cell().Element(StyleBodyCell).Text(index.ToString());
-        foreach (var value in values)
-        {
-            _ = table.Cell().Element(StyleBodyCell).Text(string.IsNullOrWhiteSpace(value) ? "-" : value);
-        }
-    }
-
     private void ComposeIssueRow(TableDescriptor table, int index, QaIssue issue, params string[] values) =>
         ComposeIssueRow(table, index, issue, false, values);
 
     private void ComposeIssueRow(TableDescriptor table, int index, QaIssue issue, bool highlightIssue, params string[] values)
     {
-        _ = table.Cell().Element(StyleBodyCell).Text(index.ToString());
+        _ = table.Cell().Element(StyleBodyCell).Text(index.ToString(CultureInfo.InvariantCulture));
         table.Cell().Element(StyleBodyCell).Text(text =>
         {
             var hyperlink = text.Hyperlink(issue.Key, BuildIssueUrl(issue.Key)).Underline();
@@ -268,10 +260,10 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
 
         foreach (var value in values)
         {
-            var textColor = string.Equals(value, MultiVersionAlertText, StringComparison.Ordinal)
+            var textColor = string.Equals(value, MULTI_VERSION_ALERT_TEXT, StringComparison.Ordinal)
                 ? Colors.Orange.Darken2
                 : Colors.Black;
-            var isAlert = string.Equals(value, MultiVersionAlertText, StringComparison.Ordinal);
+            var isAlert = string.Equals(value, MULTI_VERSION_ALERT_TEXT, StringComparison.Ordinal);
             table.Cell().Element(StyleBodyCell).Text(text =>
             {
                 var span = text.Span(string.IsNullOrWhiteSpace(value) ? "-" : value).FontColor(textColor);
@@ -284,17 +276,9 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
     }
 
     private static string FormatDate(DateTimeOffset? value) =>
-        value?.ToString("yyyy-MM-dd HH:mm") ?? "-";
+        value?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "-";
 
-    private static string FormatMergedPullRequests(IReadOnlyList<QaMergedPullRequest> pullRequests)
-    {
-        if (pullRequests.Count == 0)
-        {
-            return "-";
-        }
-
-        return string.Join(", ", pullRequests.Select(static pr => $"#{pr.PullRequestId}"));
-    }
+    private static string FormatMergedPullRequests(IReadOnlyList<QaMergedPullRequest> pullRequests) => pullRequests.Count == 0 ? "-" : string.Join(", ", pullRequests.Select(static pr => $"#{pr.PullRequestId}"));
 
     private static string FormatBranchNames(IEnumerable<string> branchNames)
     {
@@ -323,8 +307,8 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
         new Uri(_jiraIssueBaseUrl, Uri.EscapeDataString(issueKey)).ToString();
 
     private static string FormatAlertText(QaMergedIssueVersionRow item) =>
-        item.HasMultipleVersions ? MultiVersionAlertText : "-";
+        item.HasMultipleVersions ? MULTI_VERSION_ALERT_TEXT : "-";
 
-    private const string MultiVersionAlertText = "MULTI-VERSION";
+    private const string MULTI_VERSION_ALERT_TEXT = "MULTI-VERSION";
     private readonly Uri _jiraIssueBaseUrl;
 }

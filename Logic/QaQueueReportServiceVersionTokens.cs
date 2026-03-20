@@ -8,5 +8,5 @@ internal static class QaQueueReportServiceVersionTokens
     /// <summary>
     /// Represents the fallback artifact version value when no matching tag is found.
     /// </summary>
-    public const string VersionNotFound = "Version not found";
+    public const string VERSION_NOT_FOUND = "Version not found";
 }
