@@ -1,6 +1,4 @@
-using QAQueueManager.Models.Domain;
-
-namespace QAQueueManager.Logic;
+namespace QAQueueManager.Models.Domain;
 
 /// <summary>
 /// Stores intermediate merged pull request data while building repository sections.

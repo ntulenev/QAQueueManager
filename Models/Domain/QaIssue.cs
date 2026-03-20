@@ -35,4 +35,14 @@ internal sealed record QaIssue(
             .Select(static team => team.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
     ];
+
+    /// <summary>
+    /// Returns normalized team names, falling back to the configured no-team token when none exist.
+    /// </summary>
+    /// <returns>The normalized team names or the fallback team token.</returns>
+    public List<string> GetTeamsOrFallback()
+    {
+        var teams = GetNormalizedTeams();
+        return teams.Count == 0 ? [QaQueueReportServiceVersionTokens.NO_TEAM] : [.. teams];
+    }
 }

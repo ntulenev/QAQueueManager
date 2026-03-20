@@ -63,10 +63,14 @@ builder.Services.AddHttpClient<BitbucketTransport>((sp, http) =>
 });
 
 builder.Services.AddTransient<IJiraIssueSearchClient, JiraIssueSearchClient>();
+builder.Services.AddTransient<IJiraIssueSearchMapper, JiraIssueSearchMapper>();
 builder.Services.AddTransient<IJiraDevelopmentClient, JiraDevelopmentClient>();
 builder.Services.AddTransient<IBitbucketClient, BitbucketClient>();
+builder.Services.AddTransient<IQaCodeIssueDetailsLoader, QaCodeIssueDetailsLoader>();
 builder.Services.AddTransient<IQaQueueReportService, QaQueueReportService>();
+builder.Services.AddTransient<IQaQueueWorkflowRunner, QaQueueWorkflowRunner>();
 builder.Services.AddTransient<IQaQueuePresentationService, SpectreQaQueuePresentationService>();
+builder.Services.AddTransient<IQaQueueWorkflowProgressHost, SpectreQaQueueWorkflowProgressHost>();
 builder.Services.AddTransient<IPdfReportRenderer, QuestPdfReportRenderer>();
 builder.Services.AddTransient<IPdfReportFileStore, PdfReportFileStore>();
 builder.Services.AddTransient<IPdfReportLauncher, PdfReportLauncher>();

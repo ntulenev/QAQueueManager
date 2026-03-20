@@ -1,4 +1,4 @@
-namespace QAQueueManager.Logic;
+namespace QAQueueManager.Models.Domain;
 
 /// <summary>
 /// Compares team names while keeping the fallback team section at the end.
@@ -23,9 +23,9 @@ internal sealed class TeamNameComparer : IComparer<string>
             return 0;
         }
 
-        return string.Equals(x, "No team", StringComparison.OrdinalIgnoreCase)
+        return string.Equals(x, QaQueueReportServiceVersionTokens.NO_TEAM, StringComparison.OrdinalIgnoreCase)
             ? 1
-            : string.Equals(y, "No team", StringComparison.OrdinalIgnoreCase)
+            : string.Equals(y, QaQueueReportServiceVersionTokens.NO_TEAM, StringComparison.OrdinalIgnoreCase)
             ? -1
             : string.Compare(x, y, StringComparison.OrdinalIgnoreCase);
     }

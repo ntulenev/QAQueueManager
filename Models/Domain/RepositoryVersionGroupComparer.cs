@@ -1,6 +1,4 @@
-using QAQueueManager.API;
-
-namespace QAQueueManager.Logic;
+namespace QAQueueManager.Models.Domain;
 
 /// <summary>
 /// Compares artifact versions for repository output ordering.
@@ -25,12 +23,12 @@ internal sealed class RepositoryVersionGroupComparer : IComparer<string>
             return 0;
         }
 
-        if (string.Equals(x, "Version not found", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(x, QaQueueReportServiceVersionTokens.VERSION_NOT_FOUND, StringComparison.OrdinalIgnoreCase))
         {
             return 1;
         }
 
-        if (string.Equals(y, "Version not found", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(y, QaQueueReportServiceVersionTokens.VERSION_NOT_FOUND, StringComparison.OrdinalIgnoreCase))
         {
             return -1;
         }

@@ -55,6 +55,14 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
         }
     }
 
+    /// <inheritdoc />
+    public void RenderExportPaths(ReportFilePath pdfPath, ReportFilePath excelPath)
+    {
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine($"[grey]PDF exported to:[/] {Escape(pdfPath.Value)}");
+        AnsiConsole.MarkupLine($"[grey]Excel exported to:[/] {Escape(excelPath.Value)}");
+    }
+
     private static void RenderTeamSections(QaQueueReport report)
     {
         foreach (var team in report.Teams)

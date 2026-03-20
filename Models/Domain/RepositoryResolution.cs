@@ -1,6 +1,4 @@
-using QAQueueManager.Models.Domain;
-
-namespace QAQueueManager.Logic;
+namespace QAQueueManager.Models.Domain;
 
 /// <summary>
 /// Represents the repository-specific resolution result for a code-linked issue.

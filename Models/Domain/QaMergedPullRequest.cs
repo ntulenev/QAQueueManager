@@ -17,4 +17,28 @@ internal sealed record QaMergedPullRequest(
     string Version,
     string PullRequestUrl,
     CommitHash? MergeCommitHash,
-    DateTimeOffset? PullRequestUpdatedOn);
+    DateTimeOffset? PullRequestUpdatedOn)
+{
+    /// <summary>
+    /// Creates a merged pull request from a normalized Bitbucket pull request.
+    /// </summary>
+    /// <param name="pullRequest">The normalized Bitbucket pull request.</param>
+    /// <param name="version">The resolved artifact version.</param>
+    /// <returns>The mapped merged pull request.</returns>
+    public static QaMergedPullRequest FromBitbucketPullRequest(
+        BitbucketPullRequest pullRequest,
+        string version)
+    {
+        ArgumentNullException.ThrowIfNull(pullRequest);
+        ArgumentException.ThrowIfNullOrWhiteSpace(version);
+
+        return new QaMergedPullRequest(
+            pullRequest.Id,
+            pullRequest.SourceBranch,
+            pullRequest.DestinationBranch,
+            version,
+            pullRequest.HtmlUrl,
+            pullRequest.MergeCommitHash,
+            pullRequest.UpdatedOn);
+    }
+}

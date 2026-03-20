@@ -1,4 +1,4 @@
-namespace QAQueueManager.API;
+namespace QAQueueManager.Models.Domain;
 
 /// <summary>
 /// Compares version-like strings by numeric version parts.
