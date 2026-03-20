@@ -149,6 +149,16 @@ The Excel export is a single workbook.
 - Jira issue keys are hyperlinks
 - pull request links are included when available
 
+### Output Examples
+
+![Output example 1](IMG1.png)
+
+![Output example 2](IMG2.png)
+
+![Output example 3](IMG3.png)
+
+![Output example 4](IMG4.png)
+
 ## Run
 
 ```powershell
