@@ -23,4 +23,16 @@ internal sealed record QaIssue(
     /// Gets a value indicating whether the issue is linked to code.
     /// </summary>
     public bool HasCode => !string.IsNullOrWhiteSpace(DevelopmentSummary) && DevelopmentSummary.Trim() != "{}";
+
+    /// <summary>
+    /// Returns normalized team names for the issue.
+    /// </summary>
+    /// <returns>The trimmed, distinct team names.</returns>
+    public IReadOnlyList<string> GetNormalizedTeams() =>
+    [
+        .. Teams
+            .Where(static team => !string.IsNullOrWhiteSpace(team))
+            .Select(static team => team.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+    ];
 }

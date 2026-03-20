@@ -113,7 +113,7 @@ internal sealed class BitbucketClient : IBitbucketClient
 
         var allTags = await GetRepositoryTagsAsync(repositorySlug, cancellationToken).ConfigureAwait(false);
         var tags = allTags
-            .Where(tag => IsMatchingCommitHash(tag.TargetHash, commitHash))
+            .Where(tag => tag.TargetHash is { } targetHash && targetHash.Matches(commitHash))
             .OrderBy(static tag => tag.Name, VersionNameComparer.Instance)
             .ToList();
 
@@ -189,21 +189,6 @@ internal sealed class BitbucketClient : IBitbucketClient
         return Uri.TryCreate(value, UriKind.Relative, out var relative)
             ? relative
             : null;
-    }
-
-    private static bool IsMatchingCommitHash(CommitHash? tagHash, CommitHash commitHash)
-    {
-        if (tagHash is null)
-        {
-            return false;
-        }
-
-        var normalizedTagHash = tagHash.Value.Value;
-        var normalizedCommitHash = commitHash.Value;
-
-        return normalizedTagHash.Equals(normalizedCommitHash, StringComparison.OrdinalIgnoreCase)
-            || normalizedTagHash.StartsWith(normalizedCommitHash, StringComparison.OrdinalIgnoreCase)
-            || normalizedCommitHash.StartsWith(normalizedTagHash, StringComparison.OrdinalIgnoreCase);
     }
 
     private readonly BitbucketTransport _transport;

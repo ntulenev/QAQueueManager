@@ -175,7 +175,7 @@ internal sealed class QaQueueReportService : IQaQueueReportService
         var resolutions = new List<RepositoryResolution>(repositoryNames.Count);
         foreach (var repositoryFullName in repositoryNames)
         {
-            var repositorySlug = ExtractRepositorySlug(repositoryFullName);
+            var repositorySlug = RepositorySlug.FromRepositoryFullName(repositoryFullName);
             var repositoryPullRequests = pullRequests
                 .Where(pr => string.Equals(pr.RepositoryFullName, repositoryFullName, StringComparison.OrdinalIgnoreCase))
                 .ToList();
@@ -420,27 +420,9 @@ internal sealed class QaQueueReportService : IQaQueueReportService
         return accumulator;
     }
 
-    private static RepositorySlug ExtractRepositorySlug(string repositoryFullName)
-    {
-        if (string.IsNullOrWhiteSpace(repositoryFullName))
-        {
-            return RepositorySlug.Unknown;
-        }
-
-        var normalized = repositoryFullName.Trim().Replace('\\', '/');
-        var parts = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return parts.Length == 0 ? RepositorySlug.Unknown : new RepositorySlug(parts[^1]);
-    }
-
-    private static string NormalizeTeamName(string? team) =>
-        string.IsNullOrWhiteSpace(team) ? NoTeam : team.Trim();
-
     private static IReadOnlyList<string> GetIssueTeams(QaIssue issue)
     {
-        var teams = issue.Teams
-            .Select(NormalizeTeamName)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var teams = issue.GetNormalizedTeams();
 
         return teams.Count == 0 ? [NoTeam] : teams;
     }

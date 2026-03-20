@@ -44,6 +44,16 @@ internal readonly record struct CommitHash
         return true;
     }
 
+    /// <summary>
+    /// Determines whether this hash matches another hash, allowing short/long hash comparisons.
+    /// </summary>
+    /// <param name="other">The other hash to compare.</param>
+    /// <returns><see langword="true"/> when the hashes refer to the same commit prefix; otherwise, <see langword="false"/>.</returns>
+    public bool Matches(CommitHash other) =>
+        Value.Equals(other.Value, StringComparison.OrdinalIgnoreCase)
+        || Value.StartsWith(other.Value, StringComparison.OrdinalIgnoreCase)
+        || other.Value.StartsWith(Value, StringComparison.OrdinalIgnoreCase);
+
     /// <inheritdoc />
     public override string ToString() => Value;
 
