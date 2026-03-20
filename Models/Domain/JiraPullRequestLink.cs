@@ -15,10 +15,10 @@ namespace QAQueueManager.Models.Domain;
 internal sealed record JiraPullRequestLink(
     PullRequestId Id,
     string Title,
-    string Status,
-    string RepositoryFullName,
-    string RepositoryUrl,
-    string SourceBranch,
-    string DestinationBranch,
-    string Url,
+    PullRequestState Status,
+    RepositoryFullName RepositoryFullName,
+    Uri? RepositoryUrl,
+    BranchName SourceBranch,
+    BranchName DestinationBranch,
+    Uri? Url,
     DateTimeOffset? LastUpdatedOn);

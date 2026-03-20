@@ -70,21 +70,21 @@ internal sealed class BitbucketClient : IBitbucketClient
 
         var repositoryFullName = response.Destination?.Repository?.FullName?.Trim();
         var repositoryDisplayName = response.Destination?.Repository?.Name?.Trim();
-        var htmlUrl = response.Links?.Html?.Href?.Trim() ?? string.Empty;
+        var htmlUrl = CreateUriOrNull(response.Links?.Html?.Href);
         var mergeCommitHash = CommitHash.TryCreate(response.MergeCommit?.Hash, out var parsedMergeCommitHash)
             ? (CommitHash?)parsedMergeCommitHash
             : null;
 
         var mapped = new BitbucketPullRequest(
             new PullRequestId(response.Id),
-            response.State?.Trim() ?? "UNKNOWN",
-            string.IsNullOrWhiteSpace(repositoryFullName)
+            string.IsNullOrWhiteSpace(response.State) ? PullRequestState.Unknown : new PullRequestState(response.State),
+            new RepositoryFullName(string.IsNullOrWhiteSpace(repositoryFullName)
                 ? $"{_options.Workspace}/{repositorySlug.Value}"
-                : repositoryFullName,
-            string.IsNullOrWhiteSpace(repositoryDisplayName) ? repositorySlug.Value : repositoryDisplayName,
+                : repositoryFullName),
+            new RepositoryDisplayName(string.IsNullOrWhiteSpace(repositoryDisplayName) ? repositorySlug.Value : repositoryDisplayName),
             repositorySlug,
-            response.Source?.Branch?.Name?.Trim() ?? "-",
-            response.Destination?.Branch?.Name?.Trim() ?? "-",
+            string.IsNullOrWhiteSpace(response.Source?.Branch?.Name) ? BranchName.Unknown : new BranchName(response.Source.Branch.Name),
+            string.IsNullOrWhiteSpace(response.Destination?.Branch?.Name) ? BranchName.Unknown : new BranchName(response.Destination.Branch.Name),
             htmlUrl,
             mergeCommitHash,
             response.UpdatedOn);
@@ -156,7 +156,7 @@ internal sealed class BitbucketClient : IBitbucketClient
                     response.Values
                         .Where(static item => !string.IsNullOrWhiteSpace(item.Name))
                         .Select(static item => new BitbucketTag(
-                            item.Name!.Trim(),
+                            new ArtifactVersion(item.Name!),
                             CommitHash.TryCreate(item.Target?.Hash, out var hash) ? hash : null,
                             item.Date)));
             }
@@ -165,7 +165,7 @@ internal sealed class BitbucketClient : IBitbucketClient
         }
 
         var distinctTags = tags
-            .GroupBy(static tag => tag.Name, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(static tag => tag.Name.Value, StringComparer.OrdinalIgnoreCase)
             .Select(static group => group.First())
             .OrderBy(static tag => tag.Name, VersionNameComparer.Instance)
             .ToList();
@@ -183,6 +183,16 @@ internal sealed class BitbucketClient : IBitbucketClient
             : Uri.TryCreate(value, UriKind.Relative, out var relative)
             ? relative
             : null;
+    }
+
+    private static Uri? CreateUriOrNull(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri) ? uri : null;
     }
 
     private readonly BitbucketTransport _transport;

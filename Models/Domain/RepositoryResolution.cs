@@ -8,7 +8,7 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="WithoutMerge">The no-merge payload when the issue is not merged into the target branch.</param>
 /// <param name="Merged">The merged payload when the issue is merged into the target branch.</param>
 internal sealed record RepositoryResolution(
-    string RepositoryFullName,
+    RepositoryFullName RepositoryFullName,
     RepositorySlug RepositorySlug,
     IssueWithoutMergeData? WithoutMerge,
     MergedIssueData? Merged);

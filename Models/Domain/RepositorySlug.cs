@@ -41,6 +41,14 @@ internal readonly record struct RepositorySlug
         return parts.Length == 0 ? Unknown : new RepositorySlug(parts[^1]);
     }
 
+    /// <summary>
+    /// Creates a repository slug from a repository full name.
+    /// </summary>
+    /// <param name="repositoryFullName">The repository full name.</param>
+    /// <returns>The resolved repository slug, or <see cref="Unknown"/> when it cannot be derived.</returns>
+    public static RepositorySlug FromRepositoryFullName(RepositoryFullName repositoryFullName) =>
+        FromRepositoryFullName(repositoryFullName.Value);
+
     /// <inheritdoc />
     public override string ToString() => Value;
 

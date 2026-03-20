@@ -11,8 +11,8 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="HasMultipleVersions">Whether the issue has multiple versions in the repository.</param>
 internal sealed record QaMergedIssueVersionRow(
     QaIssue Issue,
-    string RepositoryFullName,
+    RepositoryFullName RepositoryFullName,
     RepositorySlug RepositorySlug,
-    string Version,
+    ArtifactVersion Version,
     IReadOnlyList<QaMergedPullRequest> PullRequests,
     bool HasMultipleVersions);

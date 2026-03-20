@@ -3,7 +3,7 @@ namespace QAQueueManager.Models.Domain;
 /// <summary>
 /// Compares team names while keeping the fallback team section at the end.
 /// </summary>
-internal sealed class TeamNameComparer : IComparer<string>
+internal sealed class TeamNameComparer : IComparer<TeamName>
 {
     /// <summary>
     /// Gets the singleton comparer instance.
@@ -16,17 +16,17 @@ internal sealed class TeamNameComparer : IComparer<string>
     /// <param name="x">The left team name.</param>
     /// <param name="y">The right team name.</param>
     /// <returns>A comparison result suitable for sorting.</returns>
-    public int Compare(string? x, string? y)
+    public int Compare(TeamName x, TeamName y)
     {
-        if (ReferenceEquals(x, y))
+        if (x == y)
         {
             return 0;
         }
 
-        return string.Equals(x, QaQueueReportServiceVersionTokens.NO_TEAM, StringComparison.OrdinalIgnoreCase)
+        return x == TeamName.NoTeam
             ? 1
-            : string.Equals(y, QaQueueReportServiceVersionTokens.NO_TEAM, StringComparison.OrdinalIgnoreCase)
+            : y == TeamName.NoTeam
             ? -1
-            : string.Compare(x, y, StringComparison.OrdinalIgnoreCase);
+            : string.Compare(x.Value, y.Value, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -3,7 +3,7 @@ namespace QAQueueManager.Models.Domain;
 /// <summary>
 /// Compares version-like strings by numeric version parts.
 /// </summary>
-internal sealed class VersionNameComparer : IComparer<string>
+internal sealed class VersionNameComparer : IComparer<ArtifactVersion>
 {
     /// <summary>
     /// Gets the singleton comparer instance.
@@ -16,25 +16,25 @@ internal sealed class VersionNameComparer : IComparer<string>
     /// <param name="x">The left version value.</param>
     /// <param name="y">The right version value.</param>
     /// <returns>A comparison result suitable for sorting.</returns>
-    public int Compare(string? x, string? y)
+    public int Compare(ArtifactVersion x, ArtifactVersion y)
     {
-        if (ReferenceEquals(x, y))
+        if (x == y)
         {
             return 0;
         }
 
-        if (string.IsNullOrWhiteSpace(x))
+        if (string.IsNullOrWhiteSpace(x.Value))
         {
             return 1;
         }
 
-        if (string.IsNullOrWhiteSpace(y))
+        if (string.IsNullOrWhiteSpace(y.Value))
         {
             return -1;
         }
 
-        var xNumbers = ExtractNumbers(x);
-        var yNumbers = ExtractNumbers(y);
+        var xNumbers = ExtractNumbers(x.Value);
+        var yNumbers = ExtractNumbers(y.Value);
         var max = Math.Max(xNumbers.Count, yNumbers.Count);
 
         for (var index = 0; index < max; index++)
@@ -48,7 +48,7 @@ internal sealed class VersionNameComparer : IComparer<string>
             }
         }
 
-        return string.Compare(y, x, StringComparison.OrdinalIgnoreCase);
+        return string.Compare(y.Value, x.Value, StringComparison.OrdinalIgnoreCase);
     }
 
     private static List<int> ExtractNumbers(string value)

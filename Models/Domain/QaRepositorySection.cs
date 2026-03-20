@@ -8,7 +8,7 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="WithoutTargetMerge">The issues without a target-branch merge.</param>
 /// <param name="MergedIssueRows">The merged rows grouped by artifact version.</param>
 internal sealed record QaRepositorySection(
-    string RepositoryFullName,
+    RepositoryFullName RepositoryFullName,
     RepositorySlug RepositorySlug,
     IReadOnlyList<QaCodeIssueWithoutMerge> WithoutTargetMerge,
     IReadOnlyList<QaMergedIssueVersionRow> MergedIssueRows);

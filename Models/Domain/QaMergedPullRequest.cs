@@ -12,10 +12,10 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="PullRequestUpdatedOn">The last updated timestamp.</param>
 internal sealed record QaMergedPullRequest(
     PullRequestId PullRequestId,
-    string SourceBranch,
-    string DestinationBranch,
-    string Version,
-    string PullRequestUrl,
+    BranchName SourceBranch,
+    BranchName DestinationBranch,
+    ArtifactVersion Version,
+    Uri? PullRequestUrl,
     CommitHash? MergeCommitHash,
     DateTimeOffset? PullRequestUpdatedOn)
 {
@@ -27,10 +27,9 @@ internal sealed record QaMergedPullRequest(
     /// <returns>The mapped merged pull request.</returns>
     public static QaMergedPullRequest FromBitbucketPullRequest(
         BitbucketPullRequest pullRequest,
-        string version)
+        ArtifactVersion version)
     {
         ArgumentNullException.ThrowIfNull(pullRequest);
-        ArgumentException.ThrowIfNullOrWhiteSpace(version);
 
         return new QaMergedPullRequest(
             pullRequest.Id,

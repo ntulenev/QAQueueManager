@@ -9,7 +9,7 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="PullRequest">The normalized merged pull request.</param>
 internal sealed record PendingMergedIssue(
     QaIssue Issue,
-    string RepositoryFullName,
+    RepositoryFullName RepositoryFullName,
     RepositorySlug RepositorySlug,
     QaMergedPullRequest PullRequest)
 {
@@ -24,13 +24,12 @@ internal sealed record PendingMergedIssue(
     /// <returns>The pending merged issue.</returns>
     public static PendingMergedIssue Create(
         QaIssue issue,
-        string repositoryFullName,
+        RepositoryFullName repositoryFullName,
         RepositorySlug repositorySlug,
         BitbucketPullRequest pullRequest,
-        string version)
+        ArtifactVersion version)
     {
         ArgumentNullException.ThrowIfNull(issue);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryFullName);
         ArgumentNullException.ThrowIfNull(pullRequest);
 
         return new PendingMergedIssue(

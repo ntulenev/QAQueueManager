@@ -16,7 +16,7 @@ internal sealed record QaQueueReport(
     DateTimeOffset GeneratedAt,
     string Title,
     string Jql,
-    string TargetBranch,
+    BranchName TargetBranch,
     string? TeamGroupingField,
     bool HideNoCodeIssues,
     IReadOnlyList<QaIssue> NoCodeIssues,

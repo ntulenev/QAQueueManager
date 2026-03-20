@@ -3,7 +3,7 @@ namespace QAQueueManager.Models.Domain;
 /// <summary>
 /// Compares artifact versions for repository output ordering.
 /// </summary>
-internal sealed class RepositoryVersionGroupComparer : IComparer<string>
+internal sealed class RepositoryVersionGroupComparer : IComparer<ArtifactVersion>
 {
     /// <summary>
     /// Gets the singleton comparer instance.
@@ -16,19 +16,19 @@ internal sealed class RepositoryVersionGroupComparer : IComparer<string>
     /// <param name="x">The left version value.</param>
     /// <param name="y">The right version value.</param>
     /// <returns>A comparison result suitable for sorting.</returns>
-    public int Compare(string? x, string? y)
+    public int Compare(ArtifactVersion x, ArtifactVersion y)
     {
-        if (ReferenceEquals(x, y))
+        if (x == y)
         {
             return 0;
         }
 
-        if (string.Equals(x, QaQueueReportServiceVersionTokens.VERSION_NOT_FOUND, StringComparison.OrdinalIgnoreCase))
+        if (x.IsNotFound)
         {
             return 1;
         }
 
-        if (string.Equals(y, QaQueueReportServiceVersionTokens.VERSION_NOT_FOUND, StringComparison.OrdinalIgnoreCase))
+        if (y.IsNotFound)
         {
             return -1;
         }

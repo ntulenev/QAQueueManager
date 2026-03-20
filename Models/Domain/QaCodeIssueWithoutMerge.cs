@@ -10,7 +10,7 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="BranchNames">The related branch names.</param>
 internal sealed record QaCodeIssueWithoutMerge(
     QaIssue Issue,
-    string RepositoryFullName,
+    RepositoryFullName RepositoryFullName,
     RepositorySlug RepositorySlug,
     IReadOnlyList<JiraPullRequestLink> PullRequests,
-    IReadOnlyList<string> BranchNames);
+    IReadOnlyList<BranchName> BranchNames);

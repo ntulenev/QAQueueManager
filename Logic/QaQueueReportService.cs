@@ -62,7 +62,7 @@ internal sealed class QaQueueReportService : IQaQueueReportService
 
         var noCodeIssues = allIssues
             .Where(static issue => !issue.HasCode)
-            .OrderBy(static issue => issue.Key, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(static issue => issue.Key.Value, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var processedIssues = await _codeIssueDetailsLoader
@@ -80,7 +80,7 @@ internal sealed class QaQueueReportService : IQaQueueReportService
             DateTimeOffset.Now,
             _reportOptions.Title,
             _jiraOptions.Jql,
-            _reportOptions.TargetBranch,
+            new BranchName(_reportOptions.TargetBranch),
             IsTeamGroupingEnabled ? _jiraOptions.TeamField : null,
             _reportOptions.HideNoCodeIssues,
             noCodeIssues,
@@ -94,18 +94,18 @@ internal sealed class QaQueueReportService : IQaQueueReportService
     {
         var noCodeByTeam = noCodeIssues
             .SelectMany(static issue => issue.GetTeamsOrFallback().Select(team => new { Team = team, Issue = issue }))
-            .GroupBy(static item => item.Team, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(static item => item.Team.Value, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 static group => group.Key,
                 static group => (IReadOnlyList<QaIssue>)[.. group
                     .Select(static item => item.Issue)
                     .Distinct()
-                    .OrderBy(static issue => issue.Key, StringComparer.OrdinalIgnoreCase)],
+                    .OrderBy(static issue => issue.Key.Value, StringComparer.OrdinalIgnoreCase)],
                 StringComparer.OrdinalIgnoreCase);
 
         var processedByTeam = processedIssues
             .SelectMany(static issue => issue.Issue.GetTeamsOrFallback().Select(team => new { Team = team, Issue = issue }))
-            .GroupBy(static item => item.Team, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(static item => item.Team.Value, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 static group => group.Key,
                 static group => group
@@ -118,12 +118,14 @@ internal sealed class QaQueueReportService : IQaQueueReportService
         teamNames.UnionWith(processedByTeam.Keys);
 
         var result = new List<QaTeamSection>(teamNames.Count);
-        foreach (var teamName in teamNames.OrderBy(static name => name, TeamNameComparer.Instance))
+        foreach (var teamName in teamNames
+            .Select(static name => new TeamName(name))
+            .OrderBy(static name => name, TeamNameComparer.Instance))
         {
-            var teamNoCodeIssues = noCodeByTeam.TryGetValue(teamName, out var issues)
+            var teamNoCodeIssues = noCodeByTeam.TryGetValue(teamName.Value, out var issues)
                 ? issues
                 : [];
-            var teamProcessedIssues = processedByTeam.TryGetValue(teamName, out var processed)
+            var teamProcessedIssues = processedByTeam.TryGetValue(teamName.Value, out var processed)
                 ? processed
                 : [];
             var teamRepositories = BuildRepositorySections(teamProcessedIssues);
@@ -177,7 +179,7 @@ internal sealed class QaQueueReportService : IQaQueueReportService
 
         return [.. repositories.Values
             .Select(static accumulator => accumulator.Build())
-            .OrderBy(static section => section.RepositoryFullName, StringComparer.OrdinalIgnoreCase)];
+            .OrderBy(static section => section.RepositoryFullName.Value, StringComparer.OrdinalIgnoreCase)];
     }
 
     private readonly IJiraIssueSearchClient _jiraIssueSearchClient;

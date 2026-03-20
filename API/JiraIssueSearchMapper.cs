@@ -85,12 +85,19 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
             _ = values.TryGetValue(developmentApiField, out var developmentElement);
 
             var summary = ExtractDisplayValue(summaryElement) ?? "-";
-            var status = ExtractDisplayValue(statusElement) ?? "-";
+            var status = ExtractDisplayValue(statusElement) ?? JiraIssueStatus.Unknown.Value;
             var development = ExtractDisplayValue(developmentElement) ?? "{}";
             var teams = ExtractTeams(values, teamApiFields);
             var updatedAt = TryParseDate(updatedElement);
 
-            result.Add(new QaIssue(new JiraIssueId(issueId), issue.Key.Trim(), summary, status, development, teams, updatedAt));
+            result.Add(new QaIssue(
+                new JiraIssueId(issueId),
+                new JiraIssueKey(issue.Key),
+                summary,
+                new JiraIssueStatus(status),
+                development,
+                teams,
+                updatedAt));
         }
 
         return result;
@@ -116,7 +123,7 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
         }
     }
 
-    private static List<string> ExtractTeams(
+    private static List<TeamName> ExtractTeams(
         Dictionary<string, JsonElement> values,
         IReadOnlyList<string> teamApiFields)
     {
@@ -125,7 +132,7 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
             return [];
         }
 
-        var teams = new List<string>();
+        var teams = new List<TeamName>();
         foreach (var teamApiField in teamApiFields)
         {
             if (!values.TryGetValue(teamApiField, out var teamElement))
@@ -136,9 +143,9 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
             var extracted = ExtractDisplayValues(teamElement);
             foreach (var team in extracted)
             {
-                if (!teams.Contains(team, StringComparer.OrdinalIgnoreCase))
+                if (!teams.Any(existing => string.Equals(existing.Value, team, StringComparison.OrdinalIgnoreCase)))
                 {
-                    teams.Add(team);
+                    teams.Add(new TeamName(team));
                 }
             }
         }

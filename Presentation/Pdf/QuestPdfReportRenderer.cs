@@ -53,7 +53,7 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
                 {
                     _ = column.Item().Text(report.Title).Bold().FontSize(18);
                     _ = column.Item().Text($"Generated: {report.GeneratedAt:yyyy-MM-dd HH:mm:ss zzz}");
-                    _ = column.Item().Text($"Target branch: {report.TargetBranch}");
+                    _ = column.Item().Text($"Target branch: {report.TargetBranch.Value}");
                     _ = column.Item().Text($"JQL: {report.Jql}");
                     _ = column.Item().Text($"Totals: no-code={report.NoCodeIssues.Count}, repos={repositoryCount}, hide-no-code={report.HideNoCodeIssues}");
                     if (report.IsGroupedByTeam)
@@ -100,7 +100,7 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
     {
         foreach (var team in report.Teams)
         {
-            _ = column.Item().PaddingTop(4).Text($"Team: {team.Team}").Bold().FontSize(15);
+            _ = column.Item().PaddingTop(4).Text($"Team: {team.Team.Value}").Bold().FontSize(15);
 
             if (!report.HideNoCodeIssues)
             {
@@ -143,14 +143,14 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
             for (var index = 0; index < issues.Count; index++)
             {
                 var issue = issues[index];
-                ComposeIssueRow(table, index + 1, issue, issue.Status, FormatDate(issue.UpdatedAt), issue.Summary);
+                ComposeIssueRow(table, index + 1, issue, issue.Status.Value, FormatDate(issue.UpdatedAt), issue.Summary);
             }
         });
     }
 
     private void ComposeRepositorySection(ColumnDescriptor column, QaRepositorySection repository)
     {
-        _ = column.Item().PaddingTop(4).Text(repository.RepositoryFullName).Bold().FontSize(14);
+        _ = column.Item().PaddingTop(4).Text(repository.RepositoryFullName.Value).Bold().FontSize(14);
 
         if (repository.WithoutTargetMerge.Count > 0)
         {
@@ -178,9 +178,9 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
                         table,
                         index + 1,
                         item.Issue,
-                        item.Issue.Status,
-                        string.Join(", ", item.PullRequests.Select(static pr => $"#{pr.Id}:{pr.Status}->{pr.DestinationBranch}")),
-                        string.Join(", ", item.BranchNames),
+                        item.Issue.Status.Value,
+                        string.Join(", ", item.PullRequests.Select(static pr => $"#{pr.Id}:{pr.Status.Value}->{pr.DestinationBranch.Value}")),
+                        FormatBranchNames(item.BranchNames),
                         FormatDate(item.Issue.UpdatedAt),
                         item.Issue.Summary);
                 }
@@ -220,9 +220,9 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
                     index + 1,
                     item.Issue,
                     item.HasMultipleVersions,
-                    item.Issue.Status,
+                    item.Issue.Status.Value,
                     FormatMergedPullRequests(item.PullRequests),
-                    item.Version,
+                    item.Version.Value,
                     FormatAlertText(item),
                     FormatBranchNames(item.PullRequests.Select(static pr => pr.SourceBranch)),
                     FormatBranchNames(item.PullRequests.Select(static pr => pr.DestinationBranch)),
@@ -252,7 +252,7 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
         _ = table.Cell().Element(StyleBodyCell).Text(index.ToString(CultureInfo.InvariantCulture));
         table.Cell().Element(StyleBodyCell).Text(text =>
         {
-            var hyperlink = text.Hyperlink(issue.Key, BuildIssueUrl(issue.Key)).Underline();
+            var hyperlink = text.Hyperlink(issue.Key.Value, BuildIssueUrl(issue.Key)).Underline();
             _ = highlightIssue
                 ? hyperlink.FontColor(Colors.Orange.Darken2).SemiBold()
                 : hyperlink.FontColor(Colors.Blue.Darken2);
@@ -280,9 +280,10 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
 
     private static string FormatMergedPullRequests(IReadOnlyList<QaMergedPullRequest> pullRequests) => pullRequests.Count == 0 ? "-" : string.Join(", ", pullRequests.Select(static pr => $"#{pr.PullRequestId}"));
 
-    private static string FormatBranchNames(IEnumerable<string> branchNames)
+    private static string FormatBranchNames(IEnumerable<BranchName> branchNames)
     {
         var values = branchNames
+            .Select(static branch => branch.Value)
             .Where(static branch => !string.IsNullOrWhiteSpace(branch))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -303,8 +304,8 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
             .BorderColor(Colors.Grey.Lighten2)
             .Padding(4);
 
-    private string BuildIssueUrl(string issueKey) =>
-        new Uri(_jiraIssueBaseUrl, Uri.EscapeDataString(issueKey)).ToString();
+    private string BuildIssueUrl(JiraIssueKey issueKey) =>
+        new Uri(_jiraIssueBaseUrl, Uri.EscapeDataString(issueKey.Value)).ToString();
 
     private static string FormatAlertText(QaMergedIssueVersionRow item) =>
         item.HasMultipleVersions ? MULTI_VERSION_ALERT_TEXT : "-";

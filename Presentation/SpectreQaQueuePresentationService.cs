@@ -26,7 +26,7 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
 
         AnsiConsole.Write(new Rule($"[bold yellow]{Escape(report.Title)}[/]"));
         AnsiConsole.MarkupLine($"[grey]Generated:[/] {report.GeneratedAt:yyyy-MM-dd HH:mm:ss zzz}");
-        AnsiConsole.MarkupLine($"[grey]Target branch:[/] {Escape(report.TargetBranch)}");
+        AnsiConsole.MarkupLine($"[grey]Target branch:[/] {Escape(report.TargetBranch.Value)}");
         AnsiConsole.MarkupLine($"[grey]JQL:[/] {Escape(report.Jql)}");
         if (report.IsGroupedByTeam)
         {
@@ -67,7 +67,7 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
     {
         foreach (var team in report.Teams)
         {
-            AnsiConsole.Write(new Rule($"[bold yellow]Team: {Escape(team.Team)}[/]"));
+            AnsiConsole.Write(new Rule($"[bold yellow]Team: {Escape(team.Team.Value)}[/]"));
 
             if (!report.HideNoCodeIssues)
             {
@@ -104,8 +104,8 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
             var issue = issues[index];
             _ = table.AddRow(
                 (index + 1).ToString(CultureInfo.InvariantCulture),
-                Escape(issue.Key),
-                Escape(issue.Status),
+                Escape(issue.Key.Value),
+                Escape(issue.Status.Value),
                 Escape(FormatDate(issue.UpdatedAt)),
                 Escape(issue.Summary));
         }
@@ -116,7 +116,7 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
 
     private static void RenderRepositorySection(QaRepositorySection repository)
     {
-        AnsiConsole.Write(new Rule($"[bold]{Escape(repository.RepositoryFullName)}[/]"));
+        AnsiConsole.Write(new Rule($"[bold]{Escape(repository.RepositoryFullName.Value)}[/]"));
 
         if (repository.WithoutTargetMerge.Count > 0)
         {
@@ -136,10 +136,10 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
                 var item = repository.WithoutTargetMerge[index];
                 _ = table.AddRow(
                     (index + 1).ToString(CultureInfo.InvariantCulture),
-                    Escape(item.Issue.Key),
-                    Escape(item.Issue.Status),
+                    Escape(item.Issue.Key.Value),
+                    Escape(item.Issue.Status.Value),
                     Escape(FormatPullRequests(item.PullRequests)),
-                    Escape(string.Join(", ", item.BranchNames)),
+                    Escape(FormatBranchNames(item.BranchNames)),
                     Escape(FormatDate(item.Issue.UpdatedAt)),
                     Escape(item.Issue.Summary));
             }
@@ -172,9 +172,9 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
             _ = mergedTable.AddRow(
                 (index + 1).ToString(CultureInfo.InvariantCulture),
                 FormatIssueCell(item),
-                Escape(item.Issue.Status),
+                Escape(item.Issue.Status.Value),
                 Escape(FormatMergedPullRequests(item.PullRequests)),
-                Escape(item.Version),
+                Escape(item.Version.Value),
                 FormatAlertCell(item),
                 Escape(FormatBranchNames(item.PullRequests.Select(static pr => pr.SourceBranch))),
                 Escape(FormatBranchNames(item.PullRequests.Select(static pr => pr.DestinationBranch))),
@@ -192,14 +192,15 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
             ? "-"
             : string.Join(
             ", ",
-            pullRequests.Select(static pr => $"#{pr.Id}:{pr.Status}->{pr.DestinationBranch}"));
+            pullRequests.Select(static pr => $"#{pr.Id}:{pr.Status.Value}->{pr.DestinationBranch.Value}"));
     }
 
     private static string FormatMergedPullRequests(IReadOnlyList<QaMergedPullRequest> pullRequests) => pullRequests.Count == 0 ? "-" : string.Join(", ", pullRequests.Select(static pr => $"#{pr.PullRequestId}"));
 
-    private static string FormatBranchNames(IEnumerable<string> branchNames)
+    private static string FormatBranchNames(IEnumerable<BranchName> branchNames)
     {
         var values = branchNames
+            .Select(static branch => branch.Value)
             .Where(static branch => !string.IsNullOrWhiteSpace(branch))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -212,8 +213,8 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
 
     private static string FormatIssueCell(QaMergedIssueVersionRow item) =>
         item.HasMultipleVersions
-            ? $"[bold yellow]{Escape(item.Issue.Key)}[/]"
-            : Escape(item.Issue.Key);
+            ? $"[bold yellow]{Escape(item.Issue.Key.Value)}[/]"
+            : Escape(item.Issue.Key.Value);
 
     private static string FormatAlertCell(QaMergedIssueVersionRow item) =>
         item.HasMultipleVersions

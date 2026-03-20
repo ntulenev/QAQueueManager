@@ -71,8 +71,8 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
                 .Select(MapBranch)
                 .Where(static item => item is not null)
                 .Select(static item => item!)
-                .OrderBy(static item => item.RepositoryFullName, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(static item => item.RepositoryFullName.Value, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(static item => item.Name.Value, StringComparer.OrdinalIgnoreCase)
         ];
     }
 
@@ -117,12 +117,12 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
         return new JiraPullRequestLink(
             new PullRequestId(pullRequestId),
             string.IsNullOrWhiteSpace(dto.Name) ? $"PR-{pullRequestId}" : dto.Name.Trim(),
-            string.IsNullOrWhiteSpace(dto.Status) ? "UNKNOWN" : dto.Status.Trim(),
-            repositoryFullName,
-            dto.RepositoryUrl?.Trim() ?? string.Empty,
-            dto.Source?.Branch?.Trim() ?? "-",
-            dto.Destination?.Branch?.Trim() ?? "-",
-            dto.Url?.Trim() ?? string.Empty,
+            string.IsNullOrWhiteSpace(dto.Status) ? PullRequestState.Unknown : new PullRequestState(dto.Status),
+            new RepositoryFullName(repositoryFullName),
+            CreateUriOrNull(dto.RepositoryUrl),
+            string.IsNullOrWhiteSpace(dto.Source?.Branch) ? BranchName.Unknown : new BranchName(dto.Source.Branch),
+            string.IsNullOrWhiteSpace(dto.Destination?.Branch) ? BranchName.Unknown : new BranchName(dto.Destination.Branch),
+            CreateUriOrNull(dto.Url),
             updatedOn);
     }
 
@@ -132,12 +132,22 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
         return string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(repositoryFullName)
             ? null
             : new JiraBranchLink(
-            dto.Name.Trim(),
-            repositoryFullName,
-            dto.Repository?.Url?.Trim() ?? string.Empty);
+            new BranchName(dto.Name),
+            new RepositoryFullName(repositoryFullName),
+            CreateUriOrNull(dto.Repository?.Url));
     }
 
     private static string NormalizeRepositoryName(string? repositoryName) => string.IsNullOrWhiteSpace(repositoryName) ? string.Empty : repositoryName.Trim().Replace('\\', '/');
+
+    private static Uri? CreateUriOrNull(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri) ? uri : null;
+    }
 
     private readonly JiraTransport _transport;
     private readonly JiraOptions _options;

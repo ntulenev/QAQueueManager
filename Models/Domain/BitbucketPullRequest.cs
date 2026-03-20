@@ -15,12 +15,12 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="UpdatedOn">The last updated timestamp.</param>
 internal sealed record BitbucketPullRequest(
     PullRequestId Id,
-    string State,
-    string RepositoryFullName,
-    string RepositoryDisplayName,
+    PullRequestState State,
+    RepositoryFullName RepositoryFullName,
+    RepositoryDisplayName RepositoryDisplayName,
     RepositorySlug RepositorySlug,
-    string SourceBranch,
-    string DestinationBranch,
-    string HtmlUrl,
+    BranchName SourceBranch,
+    BranchName DestinationBranch,
+    Uri? HtmlUrl,
     CommitHash? MergeCommitHash,
     DateTimeOffset? UpdatedOn);

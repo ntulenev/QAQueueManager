@@ -68,7 +68,7 @@ internal sealed class QaCodeIssueDetailsLoader : IQaCodeIssueDetailsLoader
                     $"Processing {issue.Key}",
                     started,
                     issues.Count,
-                    issue.Key));
+                    issue.Key.Value));
 
                 var result = await ProcessCodeIssueAsync(issue, ct).ConfigureAwait(false);
                 processedIssues.Add(result);
@@ -79,7 +79,7 @@ internal sealed class QaCodeIssueDetailsLoader : IQaCodeIssueDetailsLoader
                     $"Processed {issue.Key}",
                     completed,
                     issues.Count,
-                    issue.Key));
+                    issue.Key.Value));
             })
             .ConfigureAwait(false);
 
@@ -112,7 +112,7 @@ internal sealed class QaCodeIssueDetailsLoader : IQaCodeIssueDetailsLoader
             return new ProcessedCodeIssue(
                 issue,
                 [new RepositoryResolution(
-                    "Unknown repository",
+                    RepositoryFullName.Unknown,
                     RepositorySlug.Unknown,
                     new IssueWithoutMergeData([], []),
                     null)]);
@@ -121,32 +121,34 @@ internal sealed class QaCodeIssueDetailsLoader : IQaCodeIssueDetailsLoader
         var repositoryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var pullRequest in pullRequests)
         {
-            _ = repositoryNames.Add(pullRequest.RepositoryFullName);
+            _ = repositoryNames.Add(pullRequest.RepositoryFullName.Value);
         }
 
         foreach (var branch in branches)
         {
-            _ = repositoryNames.Add(branch.RepositoryFullName);
+            _ = repositoryNames.Add(branch.RepositoryFullName.Value);
         }
 
         var resolutions = new List<RepositoryResolution>(repositoryNames.Count);
-        foreach (var repositoryFullName in repositoryNames)
+        foreach (var repositoryName in repositoryNames)
         {
+            var repositoryFullName = new RepositoryFullName(repositoryName);
             var repositorySlug = RepositorySlug.FromRepositoryFullName(repositoryFullName);
             var repositoryPullRequests = pullRequests
-                .Where(pr => string.Equals(pr.RepositoryFullName, repositoryFullName, StringComparison.OrdinalIgnoreCase))
+                .Where(pr => string.Equals(pr.RepositoryFullName.Value, repositoryFullName.Value, StringComparison.OrdinalIgnoreCase))
                 .ToList();
             var repositoryBranches = branches
-                .Where(branch => string.Equals(branch.RepositoryFullName, repositoryFullName, StringComparison.OrdinalIgnoreCase))
+                .Where(branch => string.Equals(branch.RepositoryFullName.Value, repositoryFullName.Value, StringComparison.OrdinalIgnoreCase))
                 .Select(static branch => branch.Name)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(static name => name, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(static name => name.Value, StringComparer.OrdinalIgnoreCase)
+                .Select(static group => group.First())
+                .OrderBy(static name => name.Value, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             var candidate = repositoryPullRequests
                 .Where(pr =>
-                    string.Equals(pr.Status, "MERGED", StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(pr.DestinationBranch, _reportOptions.TargetBranch, StringComparison.OrdinalIgnoreCase))
+                    pr.Status.IsMerged &&
+                    string.Equals(pr.DestinationBranch.Value, _reportOptions.TargetBranch, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(static pr => pr.LastUpdatedOn ?? DateTimeOffset.MinValue)
                 .ThenByDescending(static pr => pr.Id)
                 .FirstOrDefault();
@@ -178,19 +180,19 @@ internal sealed class QaCodeIssueDetailsLoader : IQaCodeIssueDetailsLoader
                             candidate.Id,
                             candidate.Status,
                             repositoryFullName,
-                            repositorySlug.Value,
+                            new RepositoryDisplayName(repositorySlug.Value),
                             repositorySlug,
                             candidate.SourceBranch,
                             candidate.DestinationBranch,
                             candidate.Url,
                             null,
                             candidate.LastUpdatedOn),
-                        QaQueueReportServiceVersionTokens.VERSION_NOT_FOUND)));
+                        ArtifactVersion.NotFound)));
                 continue;
             }
 
-            if (!string.Equals(bitbucketPullRequest.State, "MERGED", StringComparison.OrdinalIgnoreCase) ||
-                !string.Equals(bitbucketPullRequest.DestinationBranch, _reportOptions.TargetBranch, StringComparison.OrdinalIgnoreCase))
+            if (!bitbucketPullRequest.State.IsMerged ||
+                !string.Equals(bitbucketPullRequest.DestinationBranch.Value, _reportOptions.TargetBranch, StringComparison.OrdinalIgnoreCase))
             {
                 resolutions.Add(new RepositoryResolution(
                     repositoryFullName,
@@ -211,20 +213,20 @@ internal sealed class QaCodeIssueDetailsLoader : IQaCodeIssueDetailsLoader
         return new ProcessedCodeIssue(issue, resolutions);
     }
 
-    private async Task<string> ResolveVersionAsync(
+    private async Task<ArtifactVersion> ResolveVersionAsync(
         BitbucketPullRequest pullRequest,
         CancellationToken cancellationToken)
     {
         if (pullRequest.MergeCommitHash is null)
         {
-            return QaQueueReportServiceVersionTokens.VERSION_NOT_FOUND;
+            return ArtifactVersion.NotFound;
         }
 
         var tags = await _bitbucketClient
             .GetTagsByCommitHashAsync(pullRequest.RepositorySlug, pullRequest.MergeCommitHash.Value, cancellationToken)
             .ConfigureAwait(false);
 
-        return tags.Count == 0 ? QaQueueReportServiceVersionTokens.VERSION_NOT_FOUND : tags[0].Name;
+        return tags.Count == 0 ? ArtifactVersion.NotFound : tags[0].Name;
     }
 
     private readonly IJiraDevelopmentClient _jiraDevelopmentClient;

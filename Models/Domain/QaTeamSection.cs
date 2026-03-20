@@ -7,6 +7,6 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="NoCodeIssues">The team's issues without code links.</param>
 /// <param name="Repositories">The team's repository sections.</param>
 internal sealed record QaTeamSection(
-    string Team,
+    TeamName Team,
     IReadOnlyList<QaIssue> NoCodeIssues,
     IReadOnlyList<QaRepositorySection> Repositories);

@@ -7,4 +7,4 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="Version">The resolved artifact version.</param>
 internal sealed record MergedIssueData(
     BitbucketPullRequest PullRequest,
-    string Version);
+    ArtifactVersion Version);

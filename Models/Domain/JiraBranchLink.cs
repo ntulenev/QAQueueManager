@@ -7,6 +7,6 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="RepositoryFullName">The full repository name.</param>
 /// <param name="RepositoryUrl">The repository URL.</param>
 internal sealed record JiraBranchLink(
-    string Name,
-    string RepositoryFullName,
-    string RepositoryUrl);
+    BranchName Name,
+    RepositoryFullName RepositoryFullName,
+    Uri? RepositoryUrl);

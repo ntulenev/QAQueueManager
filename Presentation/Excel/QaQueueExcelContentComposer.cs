@@ -40,7 +40,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
 
         var teams = report.IsGroupedByTeam
             ? report.Teams
-            : [new QaTeamSection("All Teams", report.NoCodeIssues, report.Repositories)];
+            : [new QaTeamSection(new TeamName("All Teams"), report.NoCodeIssues, report.Repositories)];
 
         foreach (var team in teams)
         {
@@ -58,7 +58,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         HashSet<string> usedSheetNames)
     {
         var rows = new List<Dictionary<string, object?>>();
-        var layout = new ExcelSheetLayout(BuildUniqueSheetName(team.Team, usedSheetNames))
+        var layout = new ExcelSheetLayout(BuildUniqueSheetName(team.Team.Value, usedSheetNames))
         {
             ColumnWidths =
             {
@@ -76,9 +76,9 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
             },
         };
 
-        AddRow(rows, layout, ExcelCellStyleKind.Title, "A", $"{report.Title} | Team: {team.Team}");
+        AddRow(rows, layout, ExcelCellStyleKind.Title, "A", $"{report.Title} | Team: {team.Team.Value}");
         AddLabeledValueRow(rows, layout, "Generated", report.GeneratedAt.ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture));
-        AddLabeledValueRow(rows, layout, "Target branch", report.TargetBranch);
+        AddLabeledValueRow(rows, layout, "Target branch", report.TargetBranch.Value);
         AddLabeledValueRow(rows, layout, "JQL", report.Jql);
         AddBlankRow(rows);
 
@@ -118,8 +118,8 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
             var currentRow = rows.Count + 1;
             rows.Add(CreateGridRow(
                 index + 1,
-                issue.Key,
-                issue.Status,
+                issue.Key.Value,
+                issue.Status.Value,
                 FormatDate(issue.UpdatedAt),
                 issue.Summary,
                 string.Empty));
@@ -136,7 +136,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         ExcelSheetLayout layout,
         QaRepositorySection repository)
     {
-        AddRow(rows, layout, ExcelCellStyleKind.SectionTitle, "A", repository.RepositoryFullName);
+        AddRow(rows, layout, ExcelCellStyleKind.SectionTitle, "A", repository.RepositoryFullName.Value);
 
         if (repository.WithoutTargetMerge.Count > 0)
         {
@@ -151,19 +151,19 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                 var currentRow = rows.Count + 1;
                 rows.Add(CreateGridRow(
                     index + 1,
-                    item.Issue.Key,
-                    item.Issue.Status,
+                    item.Issue.Key.Value,
+                    item.Issue.Status.Value,
                     FormatPullRequests(item.PullRequests),
-                    string.Join(", ", item.BranchNames),
+                    FormatBranchNames(item.BranchNames),
                     FormatDate(item.Issue.UpdatedAt),
                     item.Issue.Summary,
                     string.Empty));
                 layout.Hyperlinks[ToCellReference(2, currentRow)] = BuildIssueUrl(item.Issue.Key);
                 layout.CellStyles[ToCellReference(2, currentRow)] = ExcelCellStyleKind.Hyperlink;
 
-                if (item.PullRequests.Count == 1 && !string.IsNullOrWhiteSpace(item.PullRequests[0].Url))
+                if (item.PullRequests.Count == 1 && item.PullRequests[0].Url is not null)
                 {
-                    layout.Hyperlinks[ToCellReference(4, currentRow)] = item.PullRequests[0].Url;
+                    layout.Hyperlinks[ToCellReference(4, currentRow)] = item.PullRequests[0].Url!.ToString();
                     layout.CellStyles[ToCellReference(4, currentRow)] = ExcelCellStyleKind.Hyperlink;
                 }
             }
@@ -196,10 +196,10 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                 var currentRow = rows.Count + 1;
                 rows.Add(CreateGridRow(
                     index + 1,
-                    item.Issue.Key,
-                    item.Issue.Status,
+                    item.Issue.Key.Value,
+                    item.Issue.Status.Value,
                     FormatMergedPullRequests(item.PullRequests),
-                    item.Version,
+                    item.Version.Value,
                     item.HasMultipleVersions ? MULTI_VERSION_ALERT_TEXT : "-",
                     FormatBranchNames(item.PullRequests.Select(static pr => pr.SourceBranch)),
                     FormatBranchNames(item.PullRequests.Select(static pr => pr.DestinationBranch)),
@@ -209,9 +209,9 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                 layout.Hyperlinks[ToCellReference(2, currentRow)] = BuildIssueUrl(item.Issue.Key);
                 layout.CellStyles[ToCellReference(2, currentRow)] = ExcelCellStyleKind.Hyperlink;
 
-                if (item.PullRequests.Count == 1 && !string.IsNullOrWhiteSpace(item.PullRequests[0].PullRequestUrl))
+                if (item.PullRequests.Count == 1 && item.PullRequests[0].PullRequestUrl is not null)
                 {
-                    layout.Hyperlinks[ToCellReference(4, currentRow)] = item.PullRequests[0].PullRequestUrl;
+                    layout.Hyperlinks[ToCellReference(4, currentRow)] = item.PullRequests[0].PullRequestUrl!.ToString();
                     layout.CellStyles[ToCellReference(4, currentRow)] = ExcelCellStyleKind.Hyperlink;
                 }
 
@@ -226,8 +226,8 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         }
     }
 
-    private string BuildIssueUrl(string issueKey) =>
-        new Uri(_jiraBrowseBaseUrl, Uri.EscapeDataString(issueKey)).ToString();
+    private string BuildIssueUrl(JiraIssueKey issueKey) =>
+        new Uri(_jiraBrowseBaseUrl, Uri.EscapeDataString(issueKey.Value)).ToString();
 
     private static Dictionary<string, object?> CreateGridRow(params object?[] values)
     {
@@ -322,14 +322,15 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
     {
         return pullRequests.Count == 0
             ? "-"
-            : string.Join(", ", pullRequests.Select(static pr => $"#{pr.Id}:{pr.Status}->{pr.DestinationBranch}"));
+            : string.Join(", ", pullRequests.Select(static pr => $"#{pr.Id}:{pr.Status.Value}->{pr.DestinationBranch.Value}"));
     }
 
     private static string FormatMergedPullRequests(IReadOnlyList<QaMergedPullRequest> pullRequests) => pullRequests.Count == 0 ? "-" : string.Join(", ", pullRequests.Select(static pr => $"#{pr.PullRequestId}"));
 
-    private static string FormatBranchNames(IEnumerable<string> branchNames)
+    private static string FormatBranchNames(IEnumerable<BranchName> branchNames)
     {
         var values = branchNames
+            .Select(static branch => branch.Value)
             .Where(static branch => !string.IsNullOrWhiteSpace(branch))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();

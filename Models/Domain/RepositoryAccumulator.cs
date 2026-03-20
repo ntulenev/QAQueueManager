@@ -14,28 +14,29 @@ internal sealed class RepositoryAccumulator
     /// <returns>The matching repository accumulator.</returns>
     public static RepositoryAccumulator GetOrAdd(
         IDictionary<string, RepositoryAccumulator> repositories,
-        string repositoryFullName,
+        RepositoryFullName repositoryFullName,
         RepositorySlug repositorySlug)
     {
         ArgumentNullException.ThrowIfNull(repositories);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryFullName);
 
-        if (repositories.TryGetValue(repositoryFullName, out var accumulator))
+        var repositoryKey = repositoryFullName.Value;
+
+        if (repositories.TryGetValue(repositoryKey, out var accumulator))
         {
             return accumulator;
         }
 
         accumulator = new RepositoryAccumulator(repositoryFullName, repositorySlug);
-        repositories[repositoryFullName] = accumulator;
+        repositories[repositoryKey] = accumulator;
         return accumulator;
     }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RepositoryAccumulator"/> class.
     /// </summary>
-    /// <param name="repositoryFullName">The full repository name.</param>
+    /// <param name="repositoryFullName">The repository full name.</param>
     /// <param name="repositorySlug">The repository slug.</param>
-    public RepositoryAccumulator(string repositoryFullName, RepositorySlug repositorySlug)
+    public RepositoryAccumulator(RepositoryFullName repositoryFullName, RepositorySlug repositorySlug)
     {
         RepositoryFullName = repositoryFullName;
         RepositorySlug = repositorySlug;
@@ -44,7 +45,7 @@ internal sealed class RepositoryAccumulator
     /// <summary>
     /// Gets the full repository name.
     /// </summary>
-    public string RepositoryFullName { get; }
+    public RepositoryFullName RepositoryFullName { get; }
 
     /// <summary>
     /// Gets the repository slug.
@@ -70,7 +71,7 @@ internal sealed class RepositoryAccumulator
     public void AddWithoutMerge(
         QaIssue issue,
         IReadOnlyList<JiraPullRequestLink> pullRequests,
-        IReadOnlyList<string> branchNames)
+        IReadOnlyList<BranchName> branchNames)
     {
         ArgumentNullException.ThrowIfNull(issue);
         ArgumentNullException.ThrowIfNull(pullRequests);
@@ -90,11 +91,10 @@ internal sealed class RepositoryAccumulator
     /// <param name="issue">The Jira issue.</param>
     /// <param name="pullRequest">The normalized Bitbucket pull request.</param>
     /// <param name="version">The resolved artifact version.</param>
-    public void AddMerged(QaIssue issue, BitbucketPullRequest pullRequest, string version)
+    public void AddMerged(QaIssue issue, BitbucketPullRequest pullRequest, ArtifactVersion version)
     {
         ArgumentNullException.ThrowIfNull(issue);
         ArgumentNullException.ThrowIfNull(pullRequest);
-        ArgumentException.ThrowIfNullOrWhiteSpace(version);
 
         MergedItems.Add(PendingMergedIssue.Create(
             issue,
@@ -111,14 +111,14 @@ internal sealed class RepositoryAccumulator
     public QaRepositorySection Build()
     {
         var withoutMerge = WithoutTargetMerge
-            .OrderBy(static item => item.Issue.Key, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(static item => item.Issue.Key.Value, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var mergedRows = MergedItems
             .GroupBy(static item => item.Issue.Id)
             .SelectMany(static group => BuildMergedIssueRows(group))
             .OrderBy(static item => item.Version, RepositoryVersionGroupComparer.Instance)
-            .ThenBy(static item => item.Issue.Key, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static item => item.Issue.Key.Value, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         return new QaRepositorySection(RepositoryFullName, RepositorySlug, withoutMerge, mergedRows);
@@ -137,8 +137,9 @@ internal sealed class RepositoryAccumulator
             .ToList();
 
         var versions = pullRequests
-            .Select(pr => NormalizeVersion(pr.Version))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(static pr => pr.Version)
+            .GroupBy(static version => version.Value, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.First())
             .OrderBy(static version => version, RepositoryVersionGroupComparer.Instance)
             .ToList();
         var hasMultipleVersions = versions.Count > 1;
@@ -150,12 +151,9 @@ internal sealed class RepositoryAccumulator
                 sample.RepositorySlug,
                 version,
                 [.. pullRequests
-                    .Where(pr => string.Equals(NormalizeVersion(pr.Version), version, StringComparison.OrdinalIgnoreCase))
+                    .Where(pr => pr.Version == version)
                     .OrderByDescending(static pr => pr.PullRequestUpdatedOn ?? DateTimeOffset.MinValue)
                     .ThenByDescending(static pr => pr.PullRequestId)],
                 hasMultipleVersions))];
     }
-
-    private static string NormalizeVersion(string? version) =>
-        string.IsNullOrWhiteSpace(version) ? QaQueueReportServiceVersionTokens.VERSION_NOT_FOUND : version.Trim();
 }

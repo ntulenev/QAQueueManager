@@ -7,6 +7,6 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="TargetHash">The target commit hash.</param>
 /// <param name="TaggedOn">The tag timestamp.</param>
 internal sealed record BitbucketTag(
-    string Name,
+    ArtifactVersion Name,
     CommitHash? TargetHash,
     DateTimeOffset? TaggedOn);
