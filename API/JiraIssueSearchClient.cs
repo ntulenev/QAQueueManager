@@ -11,8 +11,16 @@ using QAQueueManager.Transport;
 
 namespace QAQueueManager.API;
 
+/// <summary>
+/// Loads Jira issues for the configured QA queue and maps them to domain models.
+/// </summary>
 internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="JiraIssueSearchClient"/> class.
+    /// </summary>
+    /// <param name="transport">The Jira transport.</param>
+    /// <param name="options">The Jira configuration options.</param>
     public JiraIssueSearchClient(JiraTransport transport, IOptions<JiraOptions> options)
     {
         ArgumentNullException.ThrowIfNull(transport);
@@ -22,6 +30,11 @@ internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
         _options = options.Value;
     }
 
+    /// <summary>
+    /// Loads Jira issues matching the configured JQL query.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token for the operation.</param>
+    /// <returns>The mapped Jira issues.</returns>
     public async Task<IReadOnlyList<QaIssue>> SearchIssuesAsync(CancellationToken cancellationToken)
     {
         var developmentApiField = await ResolveConfiguredFieldAsync(_options.DevelopmentField, cancellationToken).ConfigureAwait(false);

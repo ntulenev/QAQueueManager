@@ -9,8 +9,16 @@ using QAQueueManager.Transport;
 
 namespace QAQueueManager.API;
 
+/// <summary>
+/// Loads Jira development links for pull requests and branches.
+/// </summary>
 internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="JiraDevelopmentClient"/> class.
+    /// </summary>
+    /// <param name="transport">The Jira transport.</param>
+    /// <param name="options">The Jira configuration options.</param>
     public JiraDevelopmentClient(JiraTransport transport, IOptions<JiraOptions> options)
     {
         ArgumentNullException.ThrowIfNull(transport);
@@ -20,6 +28,12 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
         _options = options.Value;
     }
 
+    /// <summary>
+    /// Loads pull requests linked to the specified Jira issue.
+    /// </summary>
+    /// <param name="issueId">The Jira issue identifier.</param>
+    /// <param name="cancellationToken">The cancellation token for the operation.</param>
+    /// <returns>The linked pull requests.</returns>
     public async Task<IReadOnlyList<JiraPullRequestLink>> GetPullRequestsAsync(
         long issueId,
         CancellationToken cancellationToken)
@@ -42,6 +56,12 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
         ];
     }
 
+    /// <summary>
+    /// Loads branches linked to the specified Jira issue.
+    /// </summary>
+    /// <param name="issueId">The Jira issue identifier.</param>
+    /// <param name="cancellationToken">The cancellation token for the operation.</param>
+    /// <returns>The linked branches.</returns>
     public async Task<IReadOnlyList<JiraBranchLink>> GetBranchesAsync(
         long issueId,
         CancellationToken cancellationToken)

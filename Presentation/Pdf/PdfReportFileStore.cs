@@ -2,8 +2,17 @@ using QAQueueManager.Abstractions;
 
 namespace QAQueueManager.Presentation.Pdf;
 
+/// <summary>
+/// Saves generated PDF reports to disk.
+/// </summary>
 internal sealed class PdfReportFileStore : IPdfReportFileStore
 {
+    /// <summary>
+    /// Saves PDF content to disk and returns the final path.
+    /// </summary>
+    /// <param name="content">The PDF bytes to save.</param>
+    /// <param name="suggestedPath">The configured output path.</param>
+    /// <returns>The final saved path.</returns>
     public string Save(byte[] content, string suggestedPath)
     {
         ArgumentNullException.ThrowIfNull(content);

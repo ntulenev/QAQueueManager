@@ -7,8 +7,16 @@ using QAQueueManager.Models.Configuration;
 
 namespace QAQueueManager.Transport;
 
+/// <summary>
+/// Provides resilient HTTP access to Bitbucket APIs.
+/// </summary>
 internal sealed class BitbucketTransport
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BitbucketTransport"/> class.
+    /// </summary>
+    /// <param name="httpClient">The configured HTTP client.</param>
+    /// <param name="options">The Bitbucket configuration options.</param>
     public BitbucketTransport(HttpClient httpClient, IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
@@ -18,6 +26,13 @@ internal sealed class BitbucketTransport
         _retryCount = options.Value.RetryCount;
     }
 
+    /// <summary>
+    /// Sends a GET request to Bitbucket and deserializes the JSON response.
+    /// </summary>
+    /// <typeparam name="TDto">The target DTO type.</typeparam>
+    /// <param name="url">The relative or absolute request URL.</param>
+    /// <param name="cancellationToken">The cancellation token for the operation.</param>
+    /// <returns>The deserialized response payload, or <see langword="null"/> when the body is empty.</returns>
     public async Task<TDto?> GetAsync<TDto>(Uri url, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(url);

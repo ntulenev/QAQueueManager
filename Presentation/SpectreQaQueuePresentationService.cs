@@ -6,8 +6,15 @@ using QAQueueManager.Models.Domain;
 
 namespace QAQueueManager.Presentation;
 
+/// <summary>
+/// Renders the QA queue report to the interactive console using Spectre.Console.
+/// </summary>
 internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationService
 {
+    /// <summary>
+    /// Renders the supplied report to the console.
+    /// </summary>
+    /// <param name="report">The report to render.</param>
     public void Render(QaQueueReport report)
     {
         ArgumentNullException.ThrowIfNull(report);

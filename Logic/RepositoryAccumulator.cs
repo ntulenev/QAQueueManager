@@ -1,0 +1,96 @@
+using QAQueueManager.Models.Domain;
+
+namespace QAQueueManager.Logic;
+
+/// <summary>
+/// Accumulates per-repository data before materializing the final repository section.
+/// </summary>
+internal sealed class RepositoryAccumulator
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RepositoryAccumulator"/> class.
+    /// </summary>
+    /// <param name="repositoryFullName">The full repository name.</param>
+    /// <param name="repositorySlug">The repository slug.</param>
+    public RepositoryAccumulator(string repositoryFullName, string repositorySlug)
+    {
+        RepositoryFullName = repositoryFullName;
+        RepositorySlug = repositorySlug;
+    }
+
+    /// <summary>
+    /// Gets the full repository name.
+    /// </summary>
+    public string RepositoryFullName { get; }
+
+    /// <summary>
+    /// Gets the repository slug.
+    /// </summary>
+    public string RepositorySlug { get; }
+
+    /// <summary>
+    /// Gets the issues without a target-branch merge.
+    /// </summary>
+    public List<QaCodeIssueWithoutMerge> WithoutTargetMerge { get; } = [];
+
+    /// <summary>
+    /// Gets the intermediate merged issue items.
+    /// </summary>
+    public List<PendingMergedIssue> MergedItems { get; } = [];
+
+    /// <summary>
+    /// Builds the final repository section from the accumulated items.
+    /// </summary>
+    /// <returns>The repository section.</returns>
+    public QaRepositorySection Build()
+    {
+        var withoutMerge = WithoutTargetMerge
+            .OrderBy(static item => item.Issue.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var mergedRows = MergedItems
+            .GroupBy(static item => item.Issue.Id)
+            .SelectMany(static group => BuildMergedIssueRows(group))
+            .OrderBy(static item => item.Version, RepositoryVersionGroupComparer.Instance)
+            .ThenBy(static item => item.Issue.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new QaRepositorySection(RepositoryFullName, RepositorySlug, withoutMerge, mergedRows);
+    }
+
+    private static IReadOnlyList<QaMergedIssueVersionRow> BuildMergedIssueRows(IGrouping<long, PendingMergedIssue> group)
+    {
+        var items = group.ToList();
+        var sample = items[0];
+        var pullRequests = items
+            .Select(static item => item.PullRequest)
+            .GroupBy(static pr => pr.PullRequestId)
+            .Select(static prGroup => prGroup.First())
+            .OrderByDescending(static pr => pr.PullRequestUpdatedOn ?? DateTimeOffset.MinValue)
+            .ThenByDescending(static pr => pr.PullRequestId)
+            .ToList();
+
+        var versions = pullRequests
+            .Select(pr => NormalizeVersion(pr.Version))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(static version => version, RepositoryVersionGroupComparer.Instance)
+            .ToList();
+        var hasMultipleVersions = versions.Count > 1;
+
+        return versions
+            .Select(version => new QaMergedIssueVersionRow(
+                sample.Issue,
+                sample.RepositoryFullName,
+                sample.RepositorySlug,
+                version,
+                [.. pullRequests
+                    .Where(pr => string.Equals(NormalizeVersion(pr.Version), version, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(static pr => pr.PullRequestUpdatedOn ?? DateTimeOffset.MinValue)
+                    .ThenByDescending(static pr => pr.PullRequestId)],
+                hasMultipleVersions))
+            .ToList();
+    }
+
+    private static string NormalizeVersion(string? version) =>
+        string.IsNullOrWhiteSpace(version) ? QaQueueReportServiceVersionTokens.VersionNotFound : version.Trim();
+}

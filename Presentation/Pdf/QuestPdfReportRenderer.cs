@@ -11,8 +11,15 @@ using QAQueueManager.Logic;
 
 namespace QAQueueManager.Presentation.Pdf;
 
+/// <summary>
+/// Renders the QA queue report as a PDF document using QuestPDF.
+/// </summary>
 internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="QuestPdfReportRenderer"/> class.
+    /// </summary>
+    /// <param name="jiraOptions">The Jira configuration options used to build issue links.</param>
     public QuestPdfReportRenderer(IOptions<JiraOptions> jiraOptions)
     {
         ArgumentNullException.ThrowIfNull(jiraOptions);
@@ -20,6 +27,11 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
         _jiraIssueBaseUrl = new Uri(jiraOptions.Value.BaseUrl.ToString().TrimEnd('/') + "/browse/", UriKind.Absolute);
     }
 
+    /// <summary>
+    /// Renders the supplied report to PDF bytes.
+    /// </summary>
+    /// <param name="report">The report to render.</param>
+    /// <returns>The generated PDF bytes.</returns>
     public byte[] Render(QaQueueReport report)
     {
         ArgumentNullException.ThrowIfNull(report);

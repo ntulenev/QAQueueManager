@@ -8,8 +8,22 @@ using Spectre.Console;
 
 namespace QAQueueManager.Logic;
 
+/// <summary>
+/// Runs the end-to-end QA queue workflow and coordinates report exports.
+/// </summary>
 internal sealed class QaQueueApplication : IQaQueueApplication
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="QaQueueApplication"/> class.
+    /// </summary>
+    /// <param name="reportService">The report service.</param>
+    /// <param name="presentationService">The console presentation service.</param>
+    /// <param name="pdfReportRenderer">The PDF renderer.</param>
+    /// <param name="pdfReportFileStore">The PDF file store.</param>
+    /// <param name="pdfReportLauncher">The PDF launcher.</param>
+    /// <param name="excelReportRenderer">The Excel renderer.</param>
+    /// <param name="excelReportFileStore">The Excel file store.</param>
+    /// <param name="reportOptions">The report configuration options.</param>
     public QaQueueApplication(
         IQaQueueReportService reportService,
         IQaQueuePresentationService presentationService,
@@ -39,6 +53,10 @@ internal sealed class QaQueueApplication : IQaQueueApplication
         _reportOptions = reportOptions.Value;
     }
 
+    /// <summary>
+    /// Runs the full QA queue workflow and produces all configured outputs.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token for the operation.</param>
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         QaQueueReport? report = null;
@@ -102,8 +120,15 @@ internal sealed class QaQueueApplication : IQaQueueApplication
     private readonly IExcelReportFileStore _excelReportFileStore;
     private readonly ReportOptions _reportOptions;
 
+    /// <summary>
+    /// Tracks and formats build and export progress for Spectre.Console.
+    /// </summary>
     private sealed class QaQueueProgressView
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="QaQueueProgressView"/> class.
+        /// </summary>
+        /// <param name="context">The Spectre progress context.</param>
         public QaQueueProgressView(ProgressContext context)
         {
             ArgumentNullException.ThrowIfNull(context);
@@ -118,6 +143,10 @@ internal sealed class QaQueueApplication : IQaQueueApplication
             _excelTask = context.AddTask("[grey]Export Excel (waiting for report)[/]", autoStart: true, maxValue: 2);
         }
 
+        /// <summary>
+        /// Applies a build progress update to the console progress tasks.
+        /// </summary>
+        /// <param name="update">The progress update.</param>
         public void ReportBuildProgress(QaQueueBuildProgress update)
         {
             ArgumentNullException.ThrowIfNull(update);
@@ -173,6 +202,9 @@ internal sealed class QaQueueApplication : IQaQueueApplication
             }
         }
 
+        /// <summary>
+        /// Marks the start of PDF export.
+        /// </summary>
         public void StartPdfExport()
         {
             lock (_syncRoot)
@@ -182,6 +214,9 @@ internal sealed class QaQueueApplication : IQaQueueApplication
             }
         }
 
+        /// <summary>
+        /// Marks PDF rendering as completed.
+        /// </summary>
         public void ReportPdfRendered()
         {
             lock (_syncRoot)
@@ -191,6 +226,10 @@ internal sealed class QaQueueApplication : IQaQueueApplication
             }
         }
 
+        /// <summary>
+        /// Marks PDF export as completed.
+        /// </summary>
+        /// <param name="path">The saved PDF path.</param>
         public void ReportPdfSaved(string path)
         {
             lock (_syncRoot)
@@ -200,6 +239,9 @@ internal sealed class QaQueueApplication : IQaQueueApplication
             }
         }
 
+        /// <summary>
+        /// Marks the start of Excel export.
+        /// </summary>
         public void StartExcelExport()
         {
             lock (_syncRoot)
@@ -209,6 +251,9 @@ internal sealed class QaQueueApplication : IQaQueueApplication
             }
         }
 
+        /// <summary>
+        /// Marks Excel rendering as completed.
+        /// </summary>
         public void ReportExcelRendered()
         {
             lock (_syncRoot)
@@ -218,6 +263,10 @@ internal sealed class QaQueueApplication : IQaQueueApplication
             }
         }
 
+        /// <summary>
+        /// Marks Excel export as completed.
+        /// </summary>
+        /// <param name="path">The saved Excel path.</param>
         public void ReportExcelSaved(string path)
         {
             lock (_syncRoot)

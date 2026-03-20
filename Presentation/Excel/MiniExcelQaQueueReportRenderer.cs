@@ -5,8 +5,16 @@ using QAQueueManager.Models.Domain;
 
 namespace QAQueueManager.Presentation.Excel;
 
+/// <summary>
+/// Renders the QA queue report to an Excel workbook using MiniExcel and OpenXML formatting.
+/// </summary>
 internal sealed class MiniExcelQaQueueReportRenderer : IExcelReportRenderer
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MiniExcelQaQueueReportRenderer"/> class.
+    /// </summary>
+    /// <param name="workbookContentComposer">The workbook content composer.</param>
+    /// <param name="workbookFormatter">The workbook formatter.</param>
     public MiniExcelQaQueueReportRenderer(
         IExcelWorkbookContentComposer workbookContentComposer,
         IWorkbookFormatter workbookFormatter)
@@ -18,6 +26,11 @@ internal sealed class MiniExcelQaQueueReportRenderer : IExcelReportRenderer
         _workbookFormatter = workbookFormatter;
     }
 
+    /// <summary>
+    /// Renders the supplied report into an in-memory Excel workbook.
+    /// </summary>
+    /// <param name="report">The report to render.</param>
+    /// <returns>A stream containing the generated workbook.</returns>
     public MemoryStream Render(QaQueueReport report)
     {
         ArgumentNullException.ThrowIfNull(report);

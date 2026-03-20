@@ -9,8 +9,19 @@ using QAQueueManager.Models.Domain;
 
 namespace QAQueueManager.Logic;
 
+/// <summary>
+/// Builds the QA queue report from Jira issues and Bitbucket metadata.
+/// </summary>
 internal sealed class QaQueueReportService : IQaQueueReportService
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="QaQueueReportService"/> class.
+    /// </summary>
+    /// <param name="jiraIssueSearchClient">The Jira issue search client.</param>
+    /// <param name="jiraDevelopmentClient">The Jira development client.</param>
+    /// <param name="bitbucketClient">The Bitbucket client.</param>
+    /// <param name="jiraOptions">The Jira configuration options.</param>
+    /// <param name="reportOptions">The report configuration options.</param>
     public QaQueueReportService(
         IJiraIssueSearchClient jiraIssueSearchClient,
         IJiraDevelopmentClient jiraDevelopmentClient,
@@ -31,6 +42,12 @@ internal sealed class QaQueueReportService : IQaQueueReportService
         _reportOptions = reportOptions.Value;
     }
 
+    /// <summary>
+    /// Builds the QA queue report and emits optional progress updates.
+    /// </summary>
+    /// <param name="progress">The optional progress sink.</param>
+    /// <param name="cancellationToken">The cancellation token for the operation.</param>
+    /// <returns>The generated QA queue report.</returns>
     public async Task<QaQueueReport> BuildAsync(
         IProgress<QaQueueBuildProgress>? progress,
         CancellationToken cancellationToken)
@@ -436,153 +453,4 @@ internal sealed class QaQueueReportService : IQaQueueReportService
     private readonly JiraOptions _jiraOptions;
     private readonly ReportOptions _reportOptions;
     private bool IsTeamGroupingEnabled => !string.IsNullOrWhiteSpace(_jiraOptions.TeamField);
-
-    private sealed record ProcessedCodeIssue(
-        QaIssue Issue,
-        IReadOnlyList<RepositoryResolution> Resolutions);
-
-    private sealed record RepositoryResolution(
-        string RepositoryFullName,
-        string RepositorySlug,
-        IssueWithoutMergeData? WithoutMerge,
-        MergedIssueData? Merged);
-
-    private sealed record IssueWithoutMergeData(
-        IReadOnlyList<JiraPullRequestLink> PullRequests,
-        IReadOnlyList<string> BranchNames);
-
-    private sealed record MergedIssueData(
-        BitbucketPullRequest PullRequest,
-        string Version);
-
-    private sealed record PendingMergedIssue(
-        QaIssue Issue,
-        string RepositoryFullName,
-        string RepositorySlug,
-        QaMergedPullRequest PullRequest);
-
-    private sealed class RepositoryAccumulator
-    {
-        public RepositoryAccumulator(string repositoryFullName, string repositorySlug)
-        {
-            RepositoryFullName = repositoryFullName;
-            RepositorySlug = repositorySlug;
-        }
-
-        public string RepositoryFullName { get; }
-
-        public string RepositorySlug { get; }
-
-        public List<QaCodeIssueWithoutMerge> WithoutTargetMerge { get; } = [];
-
-        public List<PendingMergedIssue> MergedItems { get; } = [];
-
-        public QaRepositorySection Build()
-        {
-            var withoutMerge = WithoutTargetMerge
-                .OrderBy(static item => item.Issue.Key, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            var mergedRows = MergedItems
-                .GroupBy(static item => item.Issue.Id)
-                .SelectMany(static group => BuildMergedIssueRows(group))
-                .OrderBy(static item => item.Version, RepositoryVersionGroupComparer.Instance)
-                .ThenBy(static item => item.Issue.Key, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            return new QaRepositorySection(RepositoryFullName, RepositorySlug, withoutMerge, mergedRows);
-        }
-
-        private static IReadOnlyList<QaMergedIssueVersionRow> BuildMergedIssueRows(IGrouping<long, PendingMergedIssue> group)
-        {
-            var items = group.ToList();
-            var sample = items[0];
-            var pullRequests = items
-                .Select(static item => item.PullRequest)
-                .GroupBy(static pr => pr.PullRequestId)
-                .Select(static prGroup => prGroup.First())
-                .OrderByDescending(static pr => pr.PullRequestUpdatedOn ?? DateTimeOffset.MinValue)
-                .ThenByDescending(static pr => pr.PullRequestId)
-                .ToList();
-
-            var versions = pullRequests
-                .Select(pr => NormalizeVersion(pr.Version))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(static version => version, RepositoryVersionGroupComparer.Instance)
-                .ToList();
-            var hasMultipleVersions = versions.Count > 1;
-
-            return versions
-                .Select(version => new QaMergedIssueVersionRow(
-                    sample.Issue,
-                    sample.RepositoryFullName,
-                    sample.RepositorySlug,
-                    version,
-                    [.. pullRequests
-                        .Where(pr => string.Equals(NormalizeVersion(pr.Version), version, StringComparison.OrdinalIgnoreCase))
-                        .OrderByDescending(static pr => pr.PullRequestUpdatedOn ?? DateTimeOffset.MinValue)
-                        .ThenByDescending(static pr => pr.PullRequestId)],
-                    hasMultipleVersions))
-                .ToList();
-        }
-
-        private static string NormalizeVersion(string? version) =>
-            string.IsNullOrWhiteSpace(version) ? QaQueueReportServiceVersionTokens.VersionNotFound : version.Trim();
-    }
-}
-
-internal sealed class RepositoryVersionGroupComparer : IComparer<string>
-{
-    public static RepositoryVersionGroupComparer Instance { get; } = new();
-
-    public int Compare(string? x, string? y)
-    {
-        if (ReferenceEquals(x, y))
-        {
-            return 0;
-        }
-
-        if (string.Equals(x, "Version not found", StringComparison.OrdinalIgnoreCase))
-        {
-            return 1;
-        }
-
-        if (string.Equals(y, "Version not found", StringComparison.OrdinalIgnoreCase))
-        {
-            return -1;
-        }
-
-        var compare = VersionNameComparer.Instance.Compare(x, y);
-        return compare == 0 ? 0 : -compare;
-    }
-}
-
-internal static class QaQueueReportServiceVersionTokens
-{
-    public const string VersionNotFound = "Version not found";
-}
-
-internal sealed class TeamNameComparer : IComparer<string>
-{
-    public static TeamNameComparer Instance { get; } = new();
-
-    public int Compare(string? x, string? y)
-    {
-        if (ReferenceEquals(x, y))
-        {
-            return 0;
-        }
-
-        if (string.Equals(x, "No team", StringComparison.OrdinalIgnoreCase))
-        {
-            return 1;
-        }
-
-        if (string.Equals(y, "No team", StringComparison.OrdinalIgnoreCase))
-        {
-            return -1;
-        }
-
-        return string.Compare(x, y, StringComparison.OrdinalIgnoreCase);
-    }
 }

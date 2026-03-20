@@ -8,8 +8,16 @@ using QAQueueManager.Models.Rendering;
 
 namespace QAQueueManager.Presentation.Excel;
 
+/// <summary>
+/// Applies workbook formatting, hyperlinks, and cell styles using OpenXML.
+/// </summary>
 internal sealed class OpenXmlWorkbookFormatter : IWorkbookFormatter
 {
+    /// <summary>
+    /// Formats the supplied workbook stream according to the specified layouts.
+    /// </summary>
+    /// <param name="workbookStream">The workbook stream to format.</param>
+    /// <param name="layouts">Per-sheet layout metadata.</param>
     public void Format(Stream workbookStream, IReadOnlyDictionary<string, ExcelSheetLayout> layouts)
     {
         ArgumentNullException.ThrowIfNull(workbookStream);

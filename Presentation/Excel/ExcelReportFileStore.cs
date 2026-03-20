@@ -2,8 +2,17 @@ using QAQueueManager.Abstractions;
 
 namespace QAQueueManager.Presentation.Excel;
 
+/// <summary>
+/// Saves generated Excel workbooks to disk.
+/// </summary>
 internal sealed class ExcelReportFileStore : IExcelReportFileStore
 {
+    /// <summary>
+    /// Saves the workbook stream to disk and returns the final path.
+    /// </summary>
+    /// <param name="contentStream">The workbook stream to save.</param>
+    /// <param name="suggestedPath">The configured output path.</param>
+    /// <returns>The final saved path.</returns>
     public string Save(Stream contentStream, string suggestedPath)
     {
         ArgumentNullException.ThrowIfNull(contentStream);

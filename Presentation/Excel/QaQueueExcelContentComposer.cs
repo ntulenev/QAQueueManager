@@ -9,8 +9,15 @@ using QAQueueManager.Models.Rendering;
 
 namespace QAQueueManager.Presentation.Excel;
 
+/// <summary>
+/// Composes workbook sheets and layout metadata for Excel export.
+/// </summary>
 internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentComposer
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="QaQueueExcelContentComposer"/> class.
+    /// </summary>
+    /// <param name="jiraOptions">The Jira configuration options used to build issue links.</param>
     public QaQueueExcelContentComposer(IOptions<JiraOptions> jiraOptions)
     {
         ArgumentNullException.ThrowIfNull(jiraOptions);
@@ -18,6 +25,11 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         _jiraBrowseBaseUrl = new Uri(jiraOptions.Value.BaseUrl.ToString().TrimEnd('/') + "/browse/", UriKind.Absolute);
     }
 
+    /// <summary>
+    /// Converts the domain report into workbook sheet data and layout metadata.
+    /// </summary>
+    /// <param name="report">The report to convert.</param>
+    /// <returns>The composed workbook data.</returns>
     public ExcelWorkbookData ComposeWorkbook(QaQueueReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
@@ -350,6 +362,12 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
 
     private readonly Uri _jiraBrowseBaseUrl;
 
+    /// <summary>
+    /// Represents a fully composed worksheet and its layout metadata.
+    /// </summary>
+    /// <param name="Name">The worksheet name.</param>
+    /// <param name="Rows">The worksheet rows.</param>
+    /// <param name="Layout">The worksheet layout metadata.</param>
     private sealed record BuiltSheet(
         string Name,
         List<Dictionary<string, object?>> Rows,

@@ -9,8 +9,16 @@ using QAQueueManager.Transport;
 
 namespace QAQueueManager.API;
 
+/// <summary>
+/// Loads and normalizes Bitbucket data used by the report builder.
+/// </summary>
 internal sealed class BitbucketClient : IBitbucketClient
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BitbucketClient"/> class.
+    /// </summary>
+    /// <param name="transport">The Bitbucket transport.</param>
+    /// <param name="options">The Bitbucket configuration options.</param>
     public BitbucketClient(BitbucketTransport transport, IOptions<BitbucketOptions> options)
     {
         ArgumentNullException.ThrowIfNull(transport);
@@ -20,6 +28,13 @@ internal sealed class BitbucketClient : IBitbucketClient
         _options = options.Value;
     }
 
+    /// <summary>
+    /// Loads a Bitbucket pull request by repository slug and id.
+    /// </summary>
+    /// <param name="repositorySlug">The repository slug.</param>
+    /// <param name="pullRequestId">The pull request identifier.</param>
+    /// <param name="cancellationToken">The cancellation token for the operation.</param>
+    /// <returns>The mapped pull request, or <see langword="null"/> when it cannot be loaded.</returns>
     public async Task<BitbucketPullRequest?> GetPullRequestAsync(
         string repositorySlug,
         int pullRequestId,
@@ -76,6 +91,13 @@ internal sealed class BitbucketClient : IBitbucketClient
         return mapped;
     }
 
+    /// <summary>
+    /// Loads repository tags that point to the specified commit hash.
+    /// </summary>
+    /// <param name="repositorySlug">The repository slug.</param>
+    /// <param name="commitHash">The commit hash to match.</param>
+    /// <param name="cancellationToken">The cancellation token for the operation.</param>
+    /// <returns>The matching tags ordered by version semantics.</returns>
     public async Task<IReadOnlyList<BitbucketTag>> GetTagsByCommitHashAsync(
         string repositorySlug,
         string commitHash,
@@ -190,75 +212,4 @@ internal sealed class BitbucketClient : IBitbucketClient
     private readonly ConcurrentDictionary<string, BitbucketPullRequest?> _pullRequestCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, IReadOnlyList<BitbucketTag>> _tagCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, IReadOnlyList<BitbucketTag>> _repositoryTagCache = new(StringComparer.OrdinalIgnoreCase);
-}
-
-internal sealed class VersionNameComparer : IComparer<string>
-{
-    public static VersionNameComparer Instance { get; } = new();
-
-    public int Compare(string? x, string? y)
-    {
-        if (ReferenceEquals(x, y))
-        {
-            return 0;
-        }
-
-        if (string.IsNullOrWhiteSpace(x))
-        {
-            return 1;
-        }
-
-        if (string.IsNullOrWhiteSpace(y))
-        {
-            return -1;
-        }
-
-        var xNumbers = ExtractNumbers(x);
-        var yNumbers = ExtractNumbers(y);
-        var max = Math.Max(xNumbers.Count, yNumbers.Count);
-
-        for (var index = 0; index < max; index++)
-        {
-            var left = index < xNumbers.Count ? xNumbers[index] : 0;
-            var right = index < yNumbers.Count ? yNumbers[index] : 0;
-            var compare = right.CompareTo(left);
-            if (compare != 0)
-            {
-                return compare;
-            }
-        }
-
-        return string.Compare(y, x, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static IReadOnlyList<int> ExtractNumbers(string value)
-    {
-        var numbers = new List<int>();
-        var current = 0;
-        var inNumber = false;
-
-        foreach (var ch in value)
-        {
-            if (char.IsDigit(ch))
-            {
-                current = (current * 10) + (ch - '0');
-                inNumber = true;
-                continue;
-            }
-
-            if (inNumber)
-            {
-                numbers.Add(current);
-                current = 0;
-                inNumber = false;
-            }
-        }
-
-        if (inNumber)
-        {
-            numbers.Add(current);
-        }
-
-        return numbers;
-    }
 }
