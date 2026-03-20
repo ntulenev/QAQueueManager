@@ -1,5 +1,7 @@
 # QAQueueManager
 
+<img src="QAManager.png" alt="QAQueueManager logo" width="250">
+
 `QAQueueManager` is a .NET console tool that builds a QA report from Jira issues and Bitbucket pull request data.
 
 It is intended for teams that keep QA tasks in Jira and deliver code through Bitbucket repositories. The tool collects issues by JQL, detects which ones are linked to code, groups them by repository, checks whether the code was merged into the target branch, resolves artifact versions from Bitbucket tags, and exports the result to the console, PDF, and Excel.
