@@ -26,11 +26,16 @@ internal sealed class JiraObjectMapper : IJiraObjectMapper
                     element.EnumerateArray()
                         .Select(ExtractDisplayValue)
                         .Where(static value => !string.IsNullOrWhiteSpace(value))),
-                JsonValueKind.Undefined => throw new NotSupportedException("Undefined JsonValueKind cannot be mapped."),
-                JsonValueKind.Null => throw new NotSupportedException("Null JsonValueKind cannot be mapped."),
+                JsonValueKind.Undefined =>
+                    throw new NotSupportedException("Undefined JsonValueKind cannot be mapped."),
+                JsonValueKind.Null =>
+                    throw new NotSupportedException("Null JsonValueKind cannot be mapped."),
                 _ => element.ToString()
             };
     }
+
+    private static readonly IReadOnlyList<string> _objectDisplayPropertyOrder =
+        ["name", "displayName", "value", "key"];
 
     private string? ExtractObjectValue(JsonElement element)
     {
@@ -55,7 +60,4 @@ internal sealed class JiraObjectMapper : IJiraObjectMapper
 
         return element.ToString();
     }
-
-    private static readonly IReadOnlyList<string> _objectDisplayPropertyOrder =
-        ["name", "displayName", "value", "key"];
 }
