@@ -140,15 +140,10 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
     private static string NormalizeRepositoryName(string? repositoryName) =>
         string.IsNullOrWhiteSpace(repositoryName) ? string.Empty : repositoryName.Trim().Replace('\\', '/');
 
-    private static Uri? CreateUriOrNull(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        return Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri) ? uri : null;
-    }
+    private static Uri? CreateUriOrNull(string? value) =>
+        string.IsNullOrWhiteSpace(value) ?
+        null :
+        Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri) ? uri : null;
 
     private readonly JiraTransport _transport;
     private readonly JiraOptions _options;
