@@ -14,9 +14,9 @@ namespace QAQueueManager.Tests.Logic;
 
 public sealed class QaCodeIssueDetailsLoaderTests
 {
-    [Fact(DisplayName = "LoadAsync returns unknown repository when Jira issue has no pull requests or branches")]
+    [Fact(DisplayName = "LoadAsync skips branch lookup when development summary reports zero branches")]
     [Trait("Category", "Unit")]
-    public async Task LoadAsyncWhenIssueHasNoPullRequestsOrBranchesReturnsUnknownRepository()
+    public async Task LoadAsyncWhenDevelopmentSummaryReportsZeroBranchesSkipsBranchLookup()
     {
         // Arrange
         using var cts = new CancellationTokenSource();
@@ -51,7 +51,7 @@ public sealed class QaCodeIssueDetailsLoaderTests
 
         // Assert
         pullRequestCalls.Should().Be(1);
-        branchCalls.Should().Be(1);
+        branchCalls.Should().Be(0);
         result.Should().ContainSingle();
         result[0].Resolutions.Should().ContainSingle();
         result[0].Resolutions[0].RepositoryFullName.Should().Be(RepositoryFullName.Unknown);
@@ -60,6 +60,37 @@ public sealed class QaCodeIssueDetailsLoaderTests
         progressReports.Should().Contain(report => report.Kind == QaQueueBuildProgressKind.CodeAnalysisStarted && report.Total == 1);
         progressReports.Should().Contain(report => report.Kind == QaQueueBuildProgressKind.CodeIssueStarted && report.IssueKey == "QA-101");
         progressReports.Should().Contain(report => report.Kind == QaQueueBuildProgressKind.CodeAnalysisCompleted && report.Total == 1);
+    }
+
+    [Fact(DisplayName = "LoadAsync skips all Jira dev-status lookups when development summary reports zero pull requests and branches")]
+    [Trait("Category", "Unit")]
+    public async Task LoadAsyncWhenDevelopmentSummaryReportsNoDevelopmentSkipsAllDevStatusLookups()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var issue = TestData.CreateIssue(
+            107,
+            "QA-107",
+            developmentSummary: /*lang=json,strict*/ """{"pullRequests":0,"branches":0}""");
+
+        var jiraDevelopmentClient = new Mock<IJiraDevelopmentClient>(MockBehavior.Strict);
+        var bitbucketClient = new Mock<IBitbucketClient>(MockBehavior.Strict);
+        var loader = new QaCodeIssueDetailsLoader(
+            jiraDevelopmentClient.Object,
+            bitbucketClient.Object,
+            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+
+        // Act
+        var result = await loader.LoadAsync([issue], progress: null, cts.Token);
+
+        // Assert
+        result.Should().ContainSingle();
+        var resolution = result[0].Resolutions.Should().ContainSingle().Subject;
+        resolution.RepositoryFullName.Should().Be(RepositoryFullName.Unknown);
+        resolution.RepositorySlug.Should().Be(RepositorySlug.Unknown);
+        resolution.WithoutMerge.Should().NotBeNull();
+        resolution.WithoutMerge!.PullRequests.Should().BeEmpty();
+        resolution.WithoutMerge.BranchNames.Should().BeEmpty();
     }
 
     [Fact(DisplayName = "LoadAsync resolves merged pull requests and artifact versions")]
@@ -166,6 +197,49 @@ public sealed class QaCodeIssueDetailsLoaderTests
         resolution.WithoutMerge.BranchNames.Should().ContainInOrder(
             new BranchName("bugfix/qa-103"),
             new BranchName("feature/qa-103"));
+    }
+
+    [Fact(DisplayName = "LoadAsync skips pull request lookup when development summary reports zero pull requests")]
+    [Trait("Category", "Unit")]
+    public async Task LoadAsyncWhenDevelopmentSummaryReportsZeroPullRequestsLoadsBranchesDirectly()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var issue = TestData.CreateIssue(108, "QA-108", developmentSummary: /*lang=json,strict*/ """{"pullRequests":0,"branches":2}""");
+        var pullRequestCalls = 0;
+        var branchCalls = 0;
+
+        var jiraDevelopmentClient = new Mock<IJiraDevelopmentClient>(MockBehavior.Strict);
+        jiraDevelopmentClient
+            .Setup(client => client.GetBranchesAsync(issue.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => branchCalls++)
+            .ReturnsAsync(
+            [
+                TestData.CreateJiraBranchLink(name: "feature/qa-108", repositoryFullName: "workspace/repo-a"),
+                TestData.CreateJiraBranchLink(name: "bugfix/qa-108", repositoryFullName: "workspace/repo-a")
+            ]);
+        jiraDevelopmentClient
+            .Setup(client => client.GetPullRequestsAsync(issue.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => pullRequestCalls++)
+            .ReturnsAsync([]);
+
+        var bitbucketClient = new Mock<IBitbucketClient>(MockBehavior.Strict);
+        var loader = new QaCodeIssueDetailsLoader(
+            jiraDevelopmentClient.Object,
+            bitbucketClient.Object,
+            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+
+        // Act
+        var result = await loader.LoadAsync([issue], progress: null, cts.Token);
+
+        // Assert
+        pullRequestCalls.Should().Be(0);
+        branchCalls.Should().Be(1);
+        var resolution = result.Should().ContainSingle().Subject.Resolutions.Should().ContainSingle().Subject;
+        resolution.WithoutMerge.Should().NotBeNull();
+        resolution.WithoutMerge!.BranchNames.Should().ContainInOrder(
+            new BranchName("bugfix/qa-108"),
+            new BranchName("feature/qa-108"));
     }
 
     [Fact(DisplayName = "LoadAsync records merged Jira pull requests without Bitbucket lookup when repository slug is unknown")]
