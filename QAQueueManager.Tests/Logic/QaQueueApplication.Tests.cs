@@ -8,6 +8,7 @@ using QAQueueManager.Abstractions;
 using QAQueueManager.Logic;
 using QAQueueManager.Models.Configuration;
 using QAQueueManager.Models.Domain;
+using QAQueueManager.Models.Telemetry;
 using QAQueueManager.Tests.Testing;
 
 namespace QAQueueManager.Tests.Logic;
@@ -25,6 +26,7 @@ public sealed class QaQueueApplicationTests
         var launchCalls = 0;
         var workflowEvents = new List<string>();
         var workflowProgress = new Mock<IQaQueueWorkflowProgress>(MockBehavior.Strict);
+        var telemetrySummary = new HttpRequestTelemetrySummary(0, 0, 0, TimeSpan.Zero, []);
 
         var presentationService = new Mock<IQaQueuePresentationService>(MockBehavior.Strict);
         presentationService
@@ -35,6 +37,11 @@ public sealed class QaQueueApplicationTests
                 It.Is<ReportFilePath>(path => path == result.PdfPath),
                 It.Is<ReportFilePath>(path => path == result.ExcelPath)))
             .Callback(() => workflowEvents.Add("RenderPaths"));
+        presentationService
+            .Setup(service => service.RenderExecutionSummary(
+                It.IsAny<TimeSpan>(),
+                It.Is<HttpRequestTelemetrySummary>(value => value == telemetrySummary)))
+            .Callback(() => workflowEvents.Add("RenderTelemetry"));
 
         var workflowRunner = new Mock<IQaQueueWorkflowRunner>(MockBehavior.Strict);
         workflowRunner
@@ -53,6 +60,14 @@ public sealed class QaQueueApplicationTests
                 workflowEvents.Add("LaunchPdf");
             });
 
+        var requestTelemetryCollector = new Mock<IHttpRequestTelemetryCollector>(MockBehavior.Strict);
+        requestTelemetryCollector
+            .Setup(collector => collector.Reset())
+            .Callback(() => workflowEvents.Add("ResetTelemetry"));
+        requestTelemetryCollector
+            .Setup(collector => collector.GetSummary())
+            .Returns(telemetrySummary);
+
         var workflowProgressHost = new Mock<IQaQueueWorkflowProgressHost>(MockBehavior.Strict);
         workflowProgressHost
             .Setup(host => host.RunAsync(It.Is<Func<IQaQueueWorkflowProgress, Task>>(callback => callback != null)))
@@ -68,6 +83,7 @@ public sealed class QaQueueApplicationTests
             workflowRunner.Object,
             pdfReportLauncher.Object,
             workflowProgressHost.Object,
+            requestTelemetryCollector.Object,
             Options.Create(new ReportOptions { OpenAfterGeneration = true }));
 
         // Act
@@ -75,7 +91,14 @@ public sealed class QaQueueApplicationTests
 
         // Assert
         launchCalls.Should().Be(1);
-        workflowEvents.Should().ContainInOrder("RunHost", "RunWorkflow", "RenderReport", "RenderPaths", "LaunchPdf");
+        workflowEvents.Should().ContainInOrder(
+            "ResetTelemetry",
+            "RunHost",
+            "RunWorkflow",
+            "RenderReport",
+            "RenderPaths",
+            "LaunchPdf",
+            "RenderTelemetry");
     }
 
     [Fact(DisplayName = "RunAsync skips PDF launch when automatic opening is disabled")]
@@ -88,12 +111,16 @@ public sealed class QaQueueApplicationTests
         var result = new QaQueueWorkflowResult(report, new ReportFilePath("exports\\qa-report.pdf"), new ReportFilePath("exports\\qa-report.xlsx"));
         var launchCalls = 0;
         var workflowProgress = new Mock<IQaQueueWorkflowProgress>(MockBehavior.Strict);
+        var telemetrySummary = new HttpRequestTelemetrySummary(0, 0, 0, TimeSpan.Zero, []);
 
         var presentationService = new Mock<IQaQueuePresentationService>(MockBehavior.Strict);
         presentationService.Setup(service => service.Render(It.Is<QaQueueReport>(value => value == report))).Callback(() => { });
         presentationService.Setup(service => service.RenderExportPaths(
             It.Is<ReportFilePath>(path => path == result.PdfPath),
             It.Is<ReportFilePath>(path => path == result.ExcelPath))).Callback(() => { });
+        presentationService.Setup(service => service.RenderExecutionSummary(
+            It.IsAny<TimeSpan>(),
+            It.Is<HttpRequestTelemetrySummary>(value => value == telemetrySummary))).Callback(() => { });
 
         var workflowRunner = new Mock<IQaQueueWorkflowRunner>(MockBehavior.Strict);
         workflowRunner
@@ -104,6 +131,10 @@ public sealed class QaQueueApplicationTests
             .ReturnsAsync(result);
 
         var pdfReportLauncher = new Mock<IPdfReportLauncher>(MockBehavior.Strict);
+
+        var requestTelemetryCollector = new Mock<IHttpRequestTelemetryCollector>(MockBehavior.Strict);
+        requestTelemetryCollector.Setup(collector => collector.Reset()).Callback(() => { });
+        requestTelemetryCollector.Setup(collector => collector.GetSummary()).Returns(telemetrySummary);
 
         var workflowProgressHost = new Mock<IQaQueueWorkflowProgressHost>(MockBehavior.Strict);
         workflowProgressHost
@@ -116,6 +147,7 @@ public sealed class QaQueueApplicationTests
             workflowRunner.Object,
             pdfReportLauncher.Object,
             workflowProgressHost.Object,
+            requestTelemetryCollector.Object,
             Options.Create(new ReportOptions { OpenAfterGeneration = false }));
 
         // Act

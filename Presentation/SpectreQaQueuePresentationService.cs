@@ -2,6 +2,7 @@ using System.Globalization;
 
 using QAQueueManager.Abstractions;
 using QAQueueManager.Models.Domain;
+using QAQueueManager.Models.Telemetry;
 
 using Spectre.Console;
 
@@ -61,6 +62,51 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine($"[grey]PDF exported to:[/] {Escape(pdfPath.Value)}");
         AnsiConsole.MarkupLine($"[grey]Excel exported to:[/] {Escape(excelPath.Value)}");
+    }
+
+    /// <inheritdoc />
+    public void RenderExecutionSummary(TimeSpan totalDuration, HttpRequestTelemetrySummary telemetry)
+    {
+        ArgumentNullException.ThrowIfNull(telemetry);
+
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(new Rule("[bold yellow]HTTP telemetry[/]"));
+        AnsiConsole.MarkupLine($"[grey]Elapsed:[/] {Escape(FormatDuration(totalDuration))}");
+        AnsiConsole.MarkupLine($"[grey]Requests:[/] {telemetry.RequestCount.ToString(CultureInfo.InvariantCulture)}");
+        AnsiConsole.MarkupLine($"[grey]Retries:[/] {telemetry.RetryCount.ToString(CultureInfo.InvariantCulture)}");
+        AnsiConsole.MarkupLine($"[grey]Downloaded:[/] {Escape(FormatBytes(telemetry.ResponseBytes))}");
+        AnsiConsole.MarkupLine($"[grey]HTTP time:[/] {Escape(FormatDuration(telemetry.TotalDuration))}");
+
+        if (telemetry.Endpoints.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[grey]No HTTP requests were recorded.[/]");
+            return;
+        }
+
+        var table = new Table().Border(TableBorder.Rounded).Expand();
+        _ = table.AddColumn("Source");
+        _ = table.AddColumn("Method");
+        _ = table.AddColumn("Endpoint");
+        _ = table.AddColumn("Count");
+        _ = table.AddColumn("Retries");
+        _ = table.AddColumn("Downloaded");
+        _ = table.AddColumn("Total time");
+        _ = table.AddColumn("Max");
+
+        foreach (var endpoint in telemetry.Endpoints)
+        {
+            _ = table.AddRow(
+                Escape(endpoint.Source),
+                Escape(endpoint.Method),
+                Escape(endpoint.Endpoint),
+                endpoint.RequestCount.ToString(CultureInfo.InvariantCulture),
+                endpoint.RetryCount.ToString(CultureInfo.InvariantCulture),
+                Escape(FormatBytes(endpoint.ResponseBytes)),
+                Escape(FormatDuration(endpoint.TotalDuration)),
+                Escape(FormatDuration(endpoint.MaxDuration)));
+        }
+
+        AnsiConsole.Write(table);
     }
 
     private static void RenderTeamSections(QaQueueReport report)
@@ -210,6 +256,45 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
 
     private static string FormatDate(DateTimeOffset? value) =>
         value?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "-";
+
+    private static string FormatDuration(TimeSpan value)
+    {
+        if (value.TotalMinutes >= 1)
+        {
+            var wholeMinutes = (int)value.TotalMinutes;
+            var seconds = value - TimeSpan.FromMinutes(wholeMinutes);
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "{0}m {1:0.000}s",
+                wholeMinutes,
+                seconds.TotalSeconds);
+        }
+
+        if (value.TotalSeconds >= 1)
+        {
+            return string.Format(CultureInfo.InvariantCulture, "{0:0.000}s", value.TotalSeconds);
+        }
+
+        return string.Format(CultureInfo.InvariantCulture, "{0:0}ms", value.TotalMilliseconds);
+    }
+
+    private static string FormatBytes(long value)
+    {
+        const double kiloByte = 1024d;
+        const double megaByte = kiloByte * 1024d;
+
+        if (value >= megaByte)
+        {
+            return string.Format(CultureInfo.InvariantCulture, "{0:0.##} MB", value / megaByte);
+        }
+
+        if (value >= kiloByte)
+        {
+            return string.Format(CultureInfo.InvariantCulture, "{0:0.##} KB", value / kiloByte);
+        }
+
+        return string.Format(CultureInfo.InvariantCulture, "{0} B", value);
+    }
 
     private static string FormatIssueCell(QaMergedIssueVersionRow item) =>
         item.HasMultipleVersions

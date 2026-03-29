@@ -1,6 +1,7 @@
 using FluentAssertions;
 
 using QAQueueManager.Models.Domain;
+using QAQueueManager.Models.Telemetry;
 using QAQueueManager.Presentation;
 using QAQueueManager.Tests.Testing;
 
@@ -46,6 +47,52 @@ public sealed class SpectreQaQueuePresentationServiceTests
 
         // Assert
         await act.Should().NotThrowAsync();
+    }
+
+    [Fact(DisplayName = "RenderExecutionSummary writes HTTP telemetry output")]
+    [Trait("Category", "Unit")]
+    public async Task RenderExecutionSummaryWritesTelemetryOutput()
+    {
+        // Arrange
+        var service = new SpectreQaQueuePresentationService();
+        var telemetry = new HttpRequestTelemetrySummary(
+            RequestCount: 3,
+            RetryCount: 1,
+            ResponseBytes: 2048,
+            TotalDuration: TimeSpan.FromSeconds(1.5),
+            Endpoints:
+            [
+                new HttpRequestTelemetryEndpointSummary(
+                    Source: "Jira",
+                    Method: "GET",
+                    Endpoint: "/rest/api/3/search",
+                    RequestCount: 2,
+                    RetryCount: 1,
+                    ResponseBytes: 1536,
+                    TotalDuration: TimeSpan.FromSeconds(1.2),
+                    MaxDuration: TimeSpan.FromSeconds(0.8)),
+                new HttpRequestTelemetryEndpointSummary(
+                    Source: "Bitbucket",
+                    Method: "GET",
+                    Endpoint: "/repositories/ws/repo-a/pullrequests/1",
+                    RequestCount: 1,
+                    RetryCount: 0,
+                    ResponseBytes: 512,
+                    TotalDuration: TimeSpan.FromSeconds(0.3),
+                    MaxDuration: TimeSpan.FromSeconds(0.3))
+            ]);
+
+        // Act
+        var output = await RunWithTestConsoleAsync(() =>
+        {
+            service.RenderExecutionSummary(TimeSpan.FromSeconds(2), telemetry);
+            return Task.CompletedTask;
+        });
+
+        // Assert
+        output.Should().Contain("HTTP telemetry");
+        output.Should().Contain("Requests: 3");
+        output.Should().Contain("512 B");
     }
 
     private static async Task<string> RunWithTestConsoleAsync(Func<Task> action)

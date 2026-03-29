@@ -1,8 +1,11 @@
+using System.Diagnostics;
 using System.Net;
+using System.Text;
 using System.Text.Json;
 
 using Microsoft.Extensions.Options;
 
+using QAQueueManager.Abstractions;
 using QAQueueManager.Models.Configuration;
 
 namespace QAQueueManager.Transport;
@@ -17,13 +20,18 @@ internal sealed class JiraTransport
     /// </summary>
     /// <param name="httpClient">The configured HTTP client.</param>
     /// <param name="options">The Jira configuration options.</param>
-    public JiraTransport(HttpClient httpClient, IOptions<JiraOptions> options)
+    /// <param name="telemetryCollector">The HTTP telemetry collector.</param>
+    public JiraTransport(
+        HttpClient httpClient,
+        IOptions<JiraOptions> options,
+        IHttpRequestTelemetryCollector? telemetryCollector = null)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
         ArgumentNullException.ThrowIfNull(options);
 
         _httpClient = httpClient;
         _retryCount = options.Value.RetryCount;
+        _telemetryCollector = telemetryCollector ?? new HttpRequestTelemetryCollector();
     }
 
     /// <summary>
@@ -41,16 +49,28 @@ internal sealed class JiraTransport
 
         while (true)
         {
+            var requestRecorded = false;
+            var stopwatch = Stopwatch.StartNew();
+
             try
             {
                 using var response = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
+                var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+                stopwatch.Stop();
+                _telemetryCollector.Record(
+                    source: "Jira",
+                    method: HttpMethod.Get.Method,
+                    url,
+                    stopwatch.Elapsed,
+                    responseBytes.Length,
+                    isRetry: attempt > 0);
+                requestRecorded = true;
+
                 if (response.IsSuccessStatusCode)
                 {
-                    await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-                    return await JsonSerializer.DeserializeAsync<TDto>(
-                        stream,
-                        _jsonOptions,
-                        cancellationToken).ConfigureAwait(false);
+                    return responseBytes.Length == 0
+                        ? default
+                        : JsonSerializer.Deserialize<TDto>(responseBytes, _jsonOptions);
                 }
 
                 if (ShouldRetry(attempt, response.StatusCode))
@@ -60,7 +80,9 @@ internal sealed class JiraTransport
                     continue;
                 }
 
-                var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                var body = responseBytes.Length == 0
+                    ? string.Empty
+                    : Encoding.UTF8.GetString(responseBytes);
                 throw new HttpRequestException(
                     $"Jira API error {(int)response.StatusCode} {response.ReasonPhrase}. Url={url}. Body={body}",
                     null,
@@ -68,6 +90,18 @@ internal sealed class JiraTransport
             }
             catch (HttpRequestException) when (attempt < _retryCount)
             {
+                if (!requestRecorded)
+                {
+                    stopwatch.Stop();
+                    _telemetryCollector.Record(
+                        source: "Jira",
+                        method: HttpMethod.Get.Method,
+                        url,
+                        stopwatch.Elapsed,
+                        responseBytes: 0,
+                        isRetry: attempt > 0);
+                }
+
                 attempt++;
                 await Task.Delay(GetRetryDelay(attempt), cancellationToken).ConfigureAwait(false);
             }
@@ -87,4 +121,5 @@ internal sealed class JiraTransport
 
     private readonly HttpClient _httpClient;
     private readonly int _retryCount;
+    private readonly IHttpRequestTelemetryCollector _telemetryCollector;
 }

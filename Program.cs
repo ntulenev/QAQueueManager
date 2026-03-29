@@ -40,6 +40,8 @@ builder.Services
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
+builder.Services.AddSingleton<IHttpRequestTelemetryCollector, HttpRequestTelemetryCollector>();
+
 builder.Services.AddHttpClient<JiraTransport>((sp, http) =>
 {
     var settings = sp.GetRequiredService<IOptions<JiraOptions>>().Value;
