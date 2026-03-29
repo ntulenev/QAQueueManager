@@ -105,35 +105,30 @@ internal sealed class BitbucketClient : IBitbucketClient
         CommitHash commitHash,
         CancellationToken cancellationToken)
     {
+        if (_tagLookupFailureCache.ContainsKey(repositorySlug))
+        {
+            return [];
+        }
+
         var cacheKey = $"{repositorySlug}@{commitHash}";
         if (_tagCache.TryGetValue(cacheKey, out var cachedTags))
         {
             return cachedTags;
         }
 
-        var allTags = await GetRepositoryTagsAsync(repositorySlug, cancellationToken).ConfigureAwait(false);
-        var tags = allTags
-            .Where(tag => tag.TargetHash is { } targetHash && targetHash.Matches(commitHash))
-            .OrderBy(static tag => tag.Name, VersionNameComparer.Instance)
-            .ToList();
+        var tags = await GetFilteredTagsByCommitHashAsync(repositorySlug, commitHash, cancellationToken).ConfigureAwait(false);
 
         _tagCache[cacheKey] = tags;
         return tags;
     }
 
-    private async Task<IReadOnlyList<BitbucketTag>> GetRepositoryTagsAsync(
+    private async Task<IReadOnlyList<BitbucketTag>> GetFilteredTagsByCommitHashAsync(
         RepositorySlug repositorySlug,
+        CommitHash commitHash,
         CancellationToken cancellationToken)
     {
-        if (_repositoryTagCache.TryGetValue(repositorySlug, out var cachedTags))
-        {
-            return cachedTags;
-        }
-
         var tags = new List<BitbucketTag>();
-        var next = new Uri(
-            $"repositories/{_options.Workspace}/{Uri.EscapeDataString(repositorySlug.Value)}/refs/tags?pagelen=100",
-            UriKind.Relative);
+        var next = BuildTagLookupUri(repositorySlug, commitHash);
 
         while (next is not null)
         {
@@ -146,8 +141,8 @@ internal sealed class BitbucketClient : IBitbucketClient
             }
             catch (HttpRequestException)
             {
-                _repositoryTagCache[repositorySlug] = [];
-                return _repositoryTagCache[repositorySlug];
+                _tagLookupFailureCache[repositorySlug] = true;
+                return [];
             }
 
             if (response?.Values is not null)
@@ -164,14 +159,21 @@ internal sealed class BitbucketClient : IBitbucketClient
             next = CreateNextUri(response?.Next);
         }
 
-        var distinctTags = tags
+        return [.. tags
             .GroupBy(static tag => tag.Name.Value, StringComparer.OrdinalIgnoreCase)
             .Select(static group => group.First())
-            .OrderBy(static tag => tag.Name, VersionNameComparer.Instance)
-            .ToList();
+            .OrderBy(static tag => tag.Name, VersionNameComparer.Instance)];
+    }
 
-        _repositoryTagCache[repositorySlug] = distinctTags;
-        return distinctTags;
+    private Uri BuildTagLookupUri(RepositorySlug repositorySlug, CommitHash commitHash)
+    {
+        var q = $"target.hash = \"{commitHash.Value}\"";
+        const string fields = "values.name,values.date,values.target.hash,next";
+        var url =
+            $"repositories/{_options.Workspace}/{Uri.EscapeDataString(repositorySlug.Value)}/refs/tags" +
+            $"?pagelen=100&q={Uri.EscapeDataString(q)}&fields={Uri.EscapeDataString(fields)}";
+
+        return new Uri(url, UriKind.Relative);
     }
 
     private static Uri? CreateNextUri(string? value)
@@ -194,5 +196,5 @@ internal sealed class BitbucketClient : IBitbucketClient
     private readonly BitbucketOptions _options;
     private readonly ConcurrentDictionary<string, BitbucketPullRequest?> _pullRequestCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, IReadOnlyList<BitbucketTag>> _tagCache = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<RepositorySlug, IReadOnlyList<BitbucketTag>> _repositoryTagCache = [];
+    private readonly ConcurrentDictionary<RepositorySlug, bool> _tagLookupFailureCache = [];
 }

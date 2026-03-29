@@ -88,7 +88,10 @@ public sealed class BitbucketClientTests
         {
             cancellationToken.CanBeCanceled.Should().BeTrue();
             cancellationToken.IsCancellationRequested.Should().BeFalse();
-            request.RequestUri!.ToString().Should().Contain("/repositories/workspace/repo-a/refs/tags");
+            var requestUri = request.RequestUri!.ToString();
+            requestUri.Should().Contain("/repositories/workspace/repo-a/refs/tags");
+            requestUri.Should().Contain("q=target.hash");
+            requestUri.Should().Contain("fields=values.name%2Cvalues.date%2Cvalues.target.hash%2Cnext");
             return Task.FromResult(RecordingHttpMessageHandler.CreateJsonResponse(new BitbucketTagPageResponse
             {
                 Values =
@@ -123,6 +126,59 @@ public sealed class BitbucketClientTests
         first.Select(static tag => tag.Name.Value).Should().ContainInOrder("1.10.0", "1.2.0");
         second.Should().BeSameAs(first);
         handler.SendCalls.Should().Be(1);
+    }
+
+    [Fact(DisplayName = "GetTagsByCommitHashAsync follows opaque next links for filtered tag pages")]
+    [Trait("Category", "Unit")]
+    public async Task GetTagsByCommitHashAsyncWhenFilteredTagResponseIsPagedFollowsNextLinks()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        using var handler = new RecordingHttpMessageHandler((request, _) =>
+        {
+            var requestUri = request.RequestUri!.ToString();
+            if (requestUri.Contains("cursor=2", StringComparison.Ordinal))
+            {
+                return Task.FromResult(RecordingHttpMessageHandler.CreateJsonResponse(new BitbucketTagPageResponse
+                {
+                    Values =
+                    [
+                        new BitbucketTagDto { Name = "1.0.1", Target = new BitbucketTagTargetDto { Hash = "abcdef1" } }
+                    ]
+                }));
+            }
+
+            requestUri.Should().Contain("q=target.hash");
+            return Task.FromResult(RecordingHttpMessageHandler.CreateJsonResponse(new BitbucketTagPageResponse
+            {
+                Values =
+                [
+                    new BitbucketTagDto { Name = "1.0.0", Target = new BitbucketTagTargetDto { Hash = "abcdef1" } }
+                ],
+                Next = "https://api.bitbucket.org/2.0/repositories/workspace/repo-a/refs/tags?cursor=2"
+            }));
+        });
+        using var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://bitbucket.example.test/", UriKind.Absolute)
+        };
+        var transport = new BitbucketTransport(httpClient, Options.Create(new BitbucketOptions
+        {
+            Workspace = "workspace",
+            RetryCount = 0
+        }));
+        var client = new BitbucketClient(transport, Options.Create(new BitbucketOptions
+        {
+            Workspace = "workspace",
+            RetryCount = 0
+        }));
+
+        // Act
+        var tags = await client.GetTagsByCommitHashAsync(new RepositorySlug("repo-a"), new CommitHash("abcdef1"), cts.Token);
+
+        // Assert
+        tags.Select(static tag => tag.Name.Value).Should().ContainInOrder("1.0.1", "1.0.0");
+        handler.SendCalls.Should().Be(2);
     }
 
     [Fact(DisplayName = "GetPullRequestAsync caches missing pull requests after Bitbucket transport failures")]
