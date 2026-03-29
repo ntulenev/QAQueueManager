@@ -205,8 +205,8 @@ public sealed class JiraIssueSearchMapperTests
         mapped[0].UpdatedAt.Should().BeNull();
     }
 
+    private static JiraIssueSearchMapper CreateMapper() => new(new JiraObjectMapper());
+
     private static readonly IReadOnlyList<string> TeamApiFields = ["customfield_100"];
     private static readonly string[] TeamValues = ["Core", " core ", "Platform"];
-
-    private static JiraIssueSearchMapper CreateMapper() => new(new JiraObjectMapper());
 }
