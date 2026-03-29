@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 
@@ -51,7 +52,8 @@ builder.Services.AddHttpClient<JiraTransport>((sp, http) =>
     var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
     http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", auth);
     http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-});
+})
+.ConfigurePrimaryHttpMessageHandler(static () => CreateHttpMessageHandler());
 
 builder.Services.AddHttpClient<BitbucketTransport>((sp, http) =>
 {
@@ -62,7 +64,8 @@ builder.Services.AddHttpClient<BitbucketTransport>((sp, http) =>
     var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
     http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", auth);
     http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-});
+})
+.ConfigurePrimaryHttpMessageHandler(static () => CreateHttpMessageHandler());
 
 builder.Services.AddTransient<IJiraIssueSearchClient, JiraIssueSearchClient>();
 builder.Services.AddTransient<IJiraObjectMapper, JiraObjectMapper>();
@@ -87,3 +90,13 @@ using var host = builder.Build();
 
 var app = host.Services.GetRequiredService<IQaQueueApplication>();
 await app.RunAsync(CancellationToken.None).ConfigureAwait(false);
+
+static HttpMessageHandler CreateHttpMessageHandler()
+{
+    return new SocketsHttpHandler
+    {
+        AutomaticDecompression = DecompressionMethods.GZip
+            | DecompressionMethods.Deflate
+            | DecompressionMethods.Brotli
+    };
+}
