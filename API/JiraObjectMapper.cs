@@ -34,9 +34,6 @@ internal sealed class JiraObjectMapper : IJiraObjectMapper
             };
     }
 
-    private static readonly IReadOnlyList<string> _objectDisplayPropertyOrder =
-        ["name", "displayName", "value", "key"];
-
     private string? ExtractObjectValue(JsonElement element)
     {
         if (element.ValueKind != JsonValueKind.Object)
@@ -60,4 +57,7 @@ internal sealed class JiraObjectMapper : IJiraObjectMapper
 
         return element.ToString();
     }
+
+    private static readonly IReadOnlyList<string> _objectDisplayPropertyOrder =
+        ["name", "displayName", "value", "key"];
 }
