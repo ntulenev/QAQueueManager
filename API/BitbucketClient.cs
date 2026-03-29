@@ -46,6 +46,69 @@ internal sealed class BitbucketClient : IBitbucketClient
             return cachedPullRequest;
         }
 
+        var lazyTask = _pullRequestInFlight.GetOrAdd(
+            cacheKey,
+            _ => new Lazy<Task<BitbucketPullRequest?>>(
+                () => LoadPullRequestCoreAsync(cacheKey, repositorySlug, pullRequestId, cancellationToken),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+
+        try
+        {
+            return await lazyTask.Value.ConfigureAwait(false);
+        }
+        finally
+        {
+            _ = _pullRequestInFlight.TryRemove(
+                new KeyValuePair<string, Lazy<Task<BitbucketPullRequest?>>>(cacheKey, lazyTask));
+        }
+    }
+
+    /// <summary>
+    /// Loads repository tags that point to the specified commit hash.
+    /// </summary>
+    /// <param name="repositorySlug">The repository slug.</param>
+    /// <param name="commitHash">The commit hash to match.</param>
+    /// <param name="cancellationToken">The cancellation token for the operation.</param>
+    /// <returns>The matching tags ordered by version semantics.</returns>
+    public async Task<IReadOnlyList<BitbucketTag>> GetTagsByCommitHashAsync(
+        RepositorySlug repositorySlug,
+        CommitHash commitHash,
+        CancellationToken cancellationToken)
+    {
+        if (_tagLookupFailureCache.ContainsKey(repositorySlug))
+        {
+            return [];
+        }
+
+        var cacheKey = $"{repositorySlug}@{commitHash}";
+        if (_tagCache.TryGetValue(cacheKey, out var cachedTags))
+        {
+            return cachedTags;
+        }
+
+        var lazyTask = _tagInFlight.GetOrAdd(
+            cacheKey,
+            _ => new Lazy<Task<IReadOnlyList<BitbucketTag>>>(
+                () => LoadTagsByCommitHashCoreAsync(cacheKey, repositorySlug, commitHash, cancellationToken),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+
+        try
+        {
+            return await lazyTask.Value.ConfigureAwait(false);
+        }
+        finally
+        {
+            _ = _tagInFlight.TryRemove(
+                new KeyValuePair<string, Lazy<Task<IReadOnlyList<BitbucketTag>>>>(cacheKey, lazyTask));
+        }
+    }
+
+    private async Task<BitbucketPullRequest?> LoadPullRequestCoreAsync(
+        string cacheKey,
+        RepositorySlug repositorySlug,
+        PullRequestId pullRequestId,
+        CancellationToken cancellationToken)
+    {
         var url = new Uri(
             $"repositories/{_options.Workspace}/{Uri.EscapeDataString(repositorySlug.Value)}/pullrequests/{pullRequestId.Value}" +
             $"?fields={Uri.EscapeDataString("id,state,updated_on,merge_commit.hash,source.branch.name,destination.branch.name,destination.repository.full_name,destination.repository.name,links.html.href")}",
@@ -94,36 +157,8 @@ internal sealed class BitbucketClient : IBitbucketClient
         return mapped;
     }
 
-    /// <summary>
-    /// Loads repository tags that point to the specified commit hash.
-    /// </summary>
-    /// <param name="repositorySlug">The repository slug.</param>
-    /// <param name="commitHash">The commit hash to match.</param>
-    /// <param name="cancellationToken">The cancellation token for the operation.</param>
-    /// <returns>The matching tags ordered by version semantics.</returns>
-    public async Task<IReadOnlyList<BitbucketTag>> GetTagsByCommitHashAsync(
-        RepositorySlug repositorySlug,
-        CommitHash commitHash,
-        CancellationToken cancellationToken)
-    {
-        if (_tagLookupFailureCache.ContainsKey(repositorySlug))
-        {
-            return [];
-        }
-
-        var cacheKey = $"{repositorySlug}@{commitHash}";
-        if (_tagCache.TryGetValue(cacheKey, out var cachedTags))
-        {
-            return cachedTags;
-        }
-
-        var tags = await GetFilteredTagsByCommitHashAsync(repositorySlug, commitHash, cancellationToken).ConfigureAwait(false);
-
-        _tagCache[cacheKey] = tags;
-        return tags;
-    }
-
-    private async Task<IReadOnlyList<BitbucketTag>> GetFilteredTagsByCommitHashAsync(
+    private async Task<IReadOnlyList<BitbucketTag>> LoadTagsByCommitHashCoreAsync(
+        string cacheKey,
         RepositorySlug repositorySlug,
         CommitHash commitHash,
         CancellationToken cancellationToken)
@@ -160,10 +195,13 @@ internal sealed class BitbucketClient : IBitbucketClient
             next = CreateNextUri(response?.Next);
         }
 
-        return [.. tags
+        IReadOnlyList<BitbucketTag> distinctTags = [.. tags
             .GroupBy(static tag => tag.Name.Value, StringComparer.OrdinalIgnoreCase)
             .Select(static group => group.First())
             .OrderBy(static tag => tag.Name, VersionNameComparer.Instance)];
+
+        _tagCache[cacheKey] = distinctTags;
+        return distinctTags;
     }
 
     private Uri BuildTagLookupUri(RepositorySlug repositorySlug, CommitHash commitHash)
@@ -197,5 +235,7 @@ internal sealed class BitbucketClient : IBitbucketClient
     private readonly BitbucketOptions _options;
     private readonly ConcurrentDictionary<string, BitbucketPullRequest?> _pullRequestCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, IReadOnlyList<BitbucketTag>> _tagCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Lazy<Task<BitbucketPullRequest?>>> _pullRequestInFlight = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Lazy<Task<IReadOnlyList<BitbucketTag>>>> _tagInFlight = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<RepositorySlug, bool> _tagLookupFailureCache = [];
 }

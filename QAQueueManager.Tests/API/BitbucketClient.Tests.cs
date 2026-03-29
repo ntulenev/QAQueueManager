@@ -80,6 +80,73 @@ public sealed class BitbucketClientTests
         handler.SendCalls.Should().Be(1);
     }
 
+    [Fact(DisplayName = "GetPullRequestAsync de-duplicates concurrent requests for the same pull request")]
+    [Trait("Category", "Unit")]
+    public async Task GetPullRequestAsyncWhenCalledConcurrentlyUsesSingleInFlightRequest()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseResponse = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var handler = new RecordingHttpMessageHandler(async (request, cancellationToken) =>
+        {
+            cancellationToken.CanBeCanceled.Should().BeTrue();
+            _ = requestStarted.TrySetResult();
+            await releaseResponse.Task.WaitAsync(cancellationToken);
+            return RecordingHttpMessageHandler.CreateJsonResponse(new BitbucketPullRequestResponse
+            {
+                Id = 42,
+                State = "MERGED",
+                UpdatedOn = new DateTimeOffset(2026, 3, 20, 8, 0, 0, TimeSpan.Zero),
+                MergeCommit = new BitbucketCommitRefDto { Hash = "abcdef1" },
+                Destination = new BitbucketPullRequestSideDto
+                {
+                    Branch = new BitbucketBranchDto { Name = "main" },
+                    Repository = new BitbucketRepositoryDto { FullName = "workspace/repo-a", Name = "Repo A" }
+                },
+                Source = new BitbucketPullRequestSideDto
+                {
+                    Branch = new BitbucketBranchDto { Name = "feature/qa-42" },
+                    Repository = new BitbucketRepositoryDto { FullName = "workspace/repo-a", Name = "Repo A" }
+                },
+                Links = new BitbucketPullRequestLinksDto
+                {
+                    Html = new BitbucketHrefDto { Href = "https://bitbucket.example.test/workspace/repo-a/pull-requests/42" }
+                }
+            });
+        });
+        using var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://bitbucket.example.test/", UriKind.Absolute)
+        };
+        var transport = new BitbucketTransport(httpClient, Options.Create(new BitbucketOptions
+        {
+            Workspace = "workspace",
+            RetryCount = 0
+        }));
+        var client = new BitbucketClient(transport, Options.Create(new BitbucketOptions
+        {
+            Workspace = "workspace",
+            RetryCount = 0
+        }));
+
+        // Act
+        var firstTask = client.GetPullRequestAsync(new RepositorySlug("repo-a"), new PullRequestId(42), cts.Token);
+        await requestStarted.Task.WaitAsync(cts.Token);
+        var secondTask = client.GetPullRequestAsync(new RepositorySlug("repo-a"), new PullRequestId(42), cts.Token);
+        await Task.Delay(50, cts.Token);
+        handler.SendCalls.Should().Be(1);
+        _ = releaseResponse.TrySetResult();
+
+        var results = await Task.WhenAll(firstTask, secondTask);
+
+        // Assert
+        results[0].Should().NotBeNull();
+        results[1].Should().BeSameAs(results[0]);
+        handler.SendCalls.Should().Be(1);
+    }
+
     [Fact(DisplayName = "GetTagsByCommitHashAsync filters tags by commit hash, sorts them, and caches repository tags")]
     [Trait("Category", "Unit")]
     public async Task GetTagsByCommitHashAsyncFiltersTagsSortsThemAndCachesRepositoryTags()
@@ -127,6 +194,59 @@ public sealed class BitbucketClientTests
         // Assert
         first.Select(static tag => tag.Name.Value).Should().ContainInOrder("1.10.0", "1.2.0");
         second.Should().BeSameAs(first);
+        handler.SendCalls.Should().Be(1);
+    }
+
+    [Fact(DisplayName = "GetTagsByCommitHashAsync de-duplicates concurrent requests for the same commit hash")]
+    [Trait("Category", "Unit")]
+    public async Task GetTagsByCommitHashAsyncWhenCalledConcurrentlyUsesSingleInFlightRequest()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseResponse = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var handler = new RecordingHttpMessageHandler(async (request, cancellationToken) =>
+        {
+            cancellationToken.CanBeCanceled.Should().BeTrue();
+            _ = requestStarted.TrySetResult();
+            await releaseResponse.Task.WaitAsync(cancellationToken);
+            return RecordingHttpMessageHandler.CreateJsonResponse(new BitbucketTagPageResponse
+            {
+                Values =
+                [
+                    new BitbucketTagDto { Name = "1.2.0", Target = new BitbucketTagTargetDto { Hash = "abcdef1" } }
+                ]
+            });
+        });
+        using var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://bitbucket.example.test/", UriKind.Absolute)
+        };
+        var transport = new BitbucketTransport(httpClient, Options.Create(new BitbucketOptions
+        {
+            Workspace = "workspace",
+            RetryCount = 0
+        }));
+        var client = new BitbucketClient(transport, Options.Create(new BitbucketOptions
+        {
+            Workspace = "workspace",
+            RetryCount = 0
+        }));
+
+        // Act
+        var firstTask = client.GetTagsByCommitHashAsync(new RepositorySlug("repo-a"), new CommitHash("abcdef1"), cts.Token);
+        await requestStarted.Task.WaitAsync(cts.Token);
+        var secondTask = client.GetTagsByCommitHashAsync(new RepositorySlug("repo-a"), new CommitHash("abcdef1"), cts.Token);
+        await Task.Delay(50, cts.Token);
+        handler.SendCalls.Should().Be(1);
+        _ = releaseResponse.TrySetResult();
+
+        var results = await Task.WhenAll(firstTask, secondTask);
+
+        // Assert
+        results[0].Should().ContainSingle().Which.Name.Should().Be(new ArtifactVersion("1.2.0"));
+        results[1].Should().BeSameAs(results[0]);
         handler.SendCalls.Should().Be(1);
     }
 
