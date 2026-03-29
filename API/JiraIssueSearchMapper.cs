@@ -12,8 +12,6 @@ namespace QAQueueManager.API;
 /// </summary>
 internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
 {
-    private readonly IJiraObjectMapper _objectMapper;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="JiraIssueSearchMapper"/> class.
     /// </summary>
@@ -191,4 +189,6 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
         var value = _objectMapper.ExtractDisplayValue(element);
         return string.IsNullOrWhiteSpace(value) ? [] : [value.Trim()];
     }
+
+    private readonly IJiraObjectMapper _objectMapper;
 }
