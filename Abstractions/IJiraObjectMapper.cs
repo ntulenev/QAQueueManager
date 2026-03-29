@@ -11,7 +11,8 @@ internal interface IJiraObjectMapper
     /// Extracts a display-friendly value from a Jira JSON element.
     /// </summary>
     /// <param name="element">The element to map.</param>
-    /// <returns>The mapped display value, or <see langword="null"/> when the element is null-like.</returns>
+    /// <returns>
+    /// The mapped display value, or <see langword="null"/> when the element is null-like.
+    /// </returns>
     string? ExtractDisplayValue(JsonElement element);
-
 }
