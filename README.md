@@ -19,6 +19,7 @@ It is intended for teams that keep QA tasks in Jira and deliver code through Bit
 - Optionally groups results by team if a Jira team field is configured.
 - Highlights multi-version cases when one issue is linked to more than one artifact version in the same repository.
 - Prints interactive progress, including loaders and progress bars, in the console.
+- Prints final HTTP telemetry for Jira and Bitbucket requests, including counts, retries, elapsed time, and downloaded bytes.
 - Exports one PDF report.
 - Exports one Excel workbook where sheets represent teams and rows include a `Comment` column for manual follow-up.
 
@@ -131,6 +132,12 @@ The console output includes:
 - issues without code links
 - repositories with tasks not merged into the target branch
 - repositories with merged tasks sorted by artifact version
+- final HTTP telemetry summary with:
+  - total execution time
+  - total number of Jira and Bitbucket requests
+  - retry count
+  - total downloaded response size
+  - per-endpoint breakdown of request count, downloaded bytes, total time, and max request time
 
 ### PDF
 
