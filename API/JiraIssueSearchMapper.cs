@@ -38,7 +38,8 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
     }
 
     /// <inheritdoc />
-    public Dictionary<string, IReadOnlyList<string>> BuildFieldLookup(IEnumerable<JiraFieldDefinitionResponse> fields)
+    public Dictionary<string, IReadOnlyList<string>> BuildFieldLookup(
+        IEnumerable<JiraFieldDefinitionResponse> fields)
     {
         ArgumentNullException.ThrowIfNull(fields);
 
@@ -46,7 +47,9 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
 
         foreach (var field in fields)
         {
-            var apiField = !string.IsNullOrWhiteSpace(field.Key) ? field.Key.Trim() : field.Id?.Trim();
+            var apiField = !string.IsNullOrWhiteSpace(field.Key)
+                ? field.Key.Trim()
+                : field.Id?.Trim();
             if (string.IsNullOrWhiteSpace(apiField))
             {
                 continue;
@@ -82,7 +85,11 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
 
         foreach (var issue in issues)
         {
-            if (!long.TryParse(issue.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var issueId) ||
+            if (!long.TryParse(
+                    issue.Id,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out var issueId) ||
                 issueId <= 0 ||
                 string.IsNullOrWhiteSpace(issue.Key))
             {
@@ -96,7 +103,8 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
             _ = values.TryGetValue(developmentApiField, out var developmentElement);
 
             var summary = _objectMapper.ExtractDisplayValue(summaryElement) ?? "-";
-            var status = _objectMapper.ExtractDisplayValue(statusElement) ?? JiraIssueStatus.Unknown.Value;
+            var status =
+                _objectMapper.ExtractDisplayValue(statusElement) ?? JiraIssueStatus.Unknown.Value;
             var development = _objectMapper.ExtractDisplayValue(developmentElement) ?? "{}";
             var teams = ExtractTeams(values, teamApiFields);
             var updatedAt = updatedElement.TryParseDate(_objectMapper.ExtractDisplayValue);
@@ -154,7 +162,8 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
             var extracted = ExtractDisplayValues(teamElement);
             foreach (var team in extracted)
             {
-                if (!teams.Any(existing => string.Equals(existing.Value, team, StringComparison.OrdinalIgnoreCase)))
+                if (!teams.Any(existing =>
+                        string.Equals(existing.Value, team, StringComparison.OrdinalIgnoreCase)))
                 {
                     teams.Add(new TeamName(team));
                 }
@@ -182,5 +191,4 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
         var value = _objectMapper.ExtractDisplayValue(element);
         return string.IsNullOrWhiteSpace(value) ? [] : [value.Trim()];
     }
-
 }
