@@ -15,7 +15,7 @@ public sealed class JiraIssueSearchMapperTests
     public void SimplifyAliasTrimsWhitespaceAndSurroundingQuotes()
     {
         // Arrange
-        var mapper = new JiraIssueSearchMapper();
+        var mapper = CreateMapper();
 
         // Act
         var alias = mapper.SimplifyAlias("  \"Team field\"  ");
@@ -29,7 +29,7 @@ public sealed class JiraIssueSearchMapperTests
     public void BuildFieldLookupBuildsAliasMapFromJiraFieldDefinitions()
     {
         // Arrange
-        var mapper = new JiraIssueSearchMapper();
+        var mapper = CreateMapper();
         JiraFieldDefinitionResponse[] fields =
         [
             new JiraFieldDefinitionResponse
@@ -56,7 +56,7 @@ public sealed class JiraIssueSearchMapperTests
     public void BuildFieldLookupWhenFieldHasNoApiFieldSkipsDefinition()
     {
         // Arrange
-        var mapper = new JiraIssueSearchMapper();
+        var mapper = CreateMapper();
         JiraFieldDefinitionResponse[] fields =
         [
             new JiraFieldDefinitionResponse
@@ -90,7 +90,7 @@ public sealed class JiraIssueSearchMapperTests
     public void MapIssuesWhenIssueContainsTeamFieldMapsTypedIssue()
     {
         // Arrange
-        var mapper = new JiraIssueSearchMapper();
+        var mapper = CreateMapper();
         var issue = new JiraIssueResponse
         {
             Id = "101",
@@ -125,7 +125,7 @@ public sealed class JiraIssueSearchMapperTests
     public void MapIssuesWhenIssueContainsInvalidOrComplexValuesUsesFallbacks()
     {
         // Arrange
-        var mapper = new JiraIssueSearchMapper();
+        var mapper = CreateMapper();
         List<JiraIssueResponse> issues =
         [
             new JiraIssueResponse
@@ -182,7 +182,7 @@ public sealed class JiraIssueSearchMapperTests
     public void MapIssuesWhenOptionalFieldsAreMissingUsesDefaults()
     {
         // Arrange
-        var mapper = new JiraIssueSearchMapper();
+        var mapper = CreateMapper();
         List<JiraIssueResponse> issues =
         [
             new JiraIssueResponse
@@ -207,4 +207,6 @@ public sealed class JiraIssueSearchMapperTests
 
     private static readonly IReadOnlyList<string> TeamApiFields = ["customfield_100"];
     private static readonly string[] TeamValues = ["Core", " core ", "Platform"];
+
+    private static JiraIssueSearchMapper CreateMapper() => new(new JiraObjectMapper());
 }

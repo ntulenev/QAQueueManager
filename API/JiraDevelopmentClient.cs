@@ -137,7 +137,8 @@ internal sealed class JiraDevelopmentClient : IJiraDevelopmentClient
             CreateUriOrNull(dto.Repository?.Url));
     }
 
-    private static string NormalizeRepositoryName(string? repositoryName) => string.IsNullOrWhiteSpace(repositoryName) ? string.Empty : repositoryName.Trim().Replace('\\', '/');
+    private static string NormalizeRepositoryName(string? repositoryName) =>
+        string.IsNullOrWhiteSpace(repositoryName) ? string.Empty : repositoryName.Trim().Replace('\\', '/');
 
     private static Uri? CreateUriOrNull(string? value)
     {

@@ -12,6 +12,17 @@ namespace QAQueueManager.API;
 /// </summary>
 internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
 {
+    private readonly IJiraObjectMapper _objectMapper;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="JiraIssueSearchMapper"/> class.
+    /// </summary>
+    /// <param name="objectMapper">The Jira object mapper used for display value extraction.</param>
+    public JiraIssueSearchMapper(IJiraObjectMapper objectMapper)
+    {
+        _objectMapper = objectMapper ?? throw new ArgumentNullException(nameof(objectMapper));
+    }
+
     /// <inheritdoc />
     public string SimplifyAlias(string alias)
     {
@@ -84,11 +95,11 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
             _ = values.TryGetValue("updated", out var updatedElement);
             _ = values.TryGetValue(developmentApiField, out var developmentElement);
 
-            var summary = ExtractDisplayValue(summaryElement) ?? "-";
-            var status = ExtractDisplayValue(statusElement) ?? JiraIssueStatus.Unknown.Value;
-            var development = ExtractDisplayValue(developmentElement) ?? "{}";
+            var summary = _objectMapper.ExtractDisplayValue(summaryElement) ?? "-";
+            var status = _objectMapper.ExtractDisplayValue(statusElement) ?? JiraIssueStatus.Unknown.Value;
+            var development = _objectMapper.ExtractDisplayValue(developmentElement) ?? "{}";
             var teams = ExtractTeams(values, teamApiFields);
-            var updatedAt = TryParseDate(updatedElement);
+            var updatedAt = updatedElement.TryParseDate(_objectMapper.ExtractDisplayValue);
 
             result.Add(new QaIssue(
                 new JiraIssueId(issueId),
@@ -123,7 +134,7 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
         }
     }
 
-    private static List<TeamName> ExtractTeams(
+    private List<TeamName> ExtractTeams(
         Dictionary<string, JsonElement> values,
         IReadOnlyList<string> teamApiFields)
     {
@@ -153,29 +164,7 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
         return teams;
     }
 
-    private static string? ExtractDisplayValue(JsonElement element)
-    {
-        return element.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null
-            ? null
-            : element.ValueKind switch
-            {
-                JsonValueKind.String => element.GetString(),
-                JsonValueKind.Number => element.ToString(),
-                JsonValueKind.True => bool.TrueString,
-                JsonValueKind.False => bool.FalseString,
-                JsonValueKind.Object => ExtractObjectValue(element),
-                JsonValueKind.Array => string.Join(
-                    ", ",
-                    element.EnumerateArray()
-                        .Select(ExtractDisplayValue)
-                        .Where(static value => !string.IsNullOrWhiteSpace(value))),
-                JsonValueKind.Undefined => throw new NotSupportedException("Undefined JsonValueKind cannot be mapped."),
-                JsonValueKind.Null => throw new NotSupportedException("Null JsonValueKind cannot be mapped."),
-                _ => element.ToString()
-            };
-    }
-
-    private static IReadOnlyList<string> ExtractDisplayValues(JsonElement element)
+    private IReadOnlyList<string> ExtractDisplayValues(JsonElement element)
     {
         if (element.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
         {
@@ -190,41 +179,8 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
                 .Distinct(StringComparer.OrdinalIgnoreCase)];
         }
 
-        var value = ExtractDisplayValue(element);
+        var value = _objectMapper.ExtractDisplayValue(element);
         return string.IsNullOrWhiteSpace(value) ? [] : [value.Trim()];
     }
 
-    private static string? ExtractObjectValue(JsonElement element)
-    {
-        foreach (var propertyName in _objectDisplayPropertyOrder)
-        {
-            if (!element.TryGetProperty(propertyName, out var propertyValue))
-            {
-                continue;
-            }
-
-            var value = ExtractDisplayValue(propertyValue);
-            if (!string.IsNullOrWhiteSpace(value))
-            {
-                return value;
-            }
-        }
-
-        return element.ToString();
-    }
-
-    private static DateTimeOffset? TryParseDate(JsonElement element)
-    {
-        var value = ExtractDisplayValue(element);
-        return DateTimeOffset.TryParse(
-            value,
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.None,
-            out var parsed)
-            ? parsed
-            : null;
-    }
-
-    private static readonly IReadOnlyList<string> _objectDisplayPropertyOrder =
-        ["name", "displayName", "value", "key"];
 }
