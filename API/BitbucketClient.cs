@@ -185,15 +185,10 @@ internal sealed class BitbucketClient : IBitbucketClient
             : null;
     }
 
-    private static Uri? CreateUriOrNull(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        return Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri) ? uri : null;
-    }
+    private static Uri? CreateUriOrNull(string? value) =>
+        string.IsNullOrWhiteSpace(value) ?
+        null :
+        Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri) ? uri : null;
 
     private readonly BitbucketTransport _transport;
     private readonly BitbucketOptions _options;
