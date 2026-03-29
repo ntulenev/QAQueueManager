@@ -47,7 +47,8 @@ internal sealed class BitbucketClient : IBitbucketClient
         }
 
         var url = new Uri(
-            $"repositories/{_options.Workspace}/{Uri.EscapeDataString(repositorySlug.Value)}/pullrequests/{pullRequestId.Value}",
+            $"repositories/{_options.Workspace}/{Uri.EscapeDataString(repositorySlug.Value)}/pullrequests/{pullRequestId.Value}" +
+            $"?fields={Uri.EscapeDataString("id,state,updated_on,merge_commit.hash,source.branch.name,destination.branch.name,destination.repository.full_name,destination.repository.name,links.html.href")}",
             UriKind.Relative);
 
         BitbucketPullRequestResponse? response;

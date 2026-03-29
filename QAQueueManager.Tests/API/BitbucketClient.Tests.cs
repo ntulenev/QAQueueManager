@@ -22,7 +22,9 @@ public sealed class BitbucketClientTests
         using var cts = new CancellationTokenSource();
         using var handler = new RecordingHttpMessageHandler((request, cancellationToken) =>
         {
-            request.RequestUri!.ToString().Should().Contain("/repositories/workspace/repo-a/pullrequests/42");
+            var requestUri = request.RequestUri!.ToString();
+            requestUri.Should().Contain("/repositories/workspace/repo-a/pullrequests/42");
+            requestUri.Should().Contain("fields=id%2Cstate%2Cupdated_on%2Cmerge_commit.hash%2Csource.branch.name%2Cdestination.branch.name%2Cdestination.repository.full_name%2Cdestination.repository.name%2Clinks.html.href");
             cancellationToken.CanBeCanceled.Should().BeTrue();
             cancellationToken.IsCancellationRequested.Should().BeFalse();
             return Task.FromResult(RecordingHttpMessageHandler.CreateJsonResponse(new BitbucketPullRequestResponse
