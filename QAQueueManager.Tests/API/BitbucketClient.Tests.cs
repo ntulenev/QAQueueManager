@@ -159,7 +159,6 @@ public sealed class BitbucketClientTests
             cancellationToken.IsCancellationRequested.Should().BeFalse();
             var requestUri = request.RequestUri!.ToString();
             requestUri.Should().Contain("/repositories/workspace/repo-a/refs/tags");
-            requestUri.Should().Contain("q=target.hash");
             requestUri.Should().Contain("fields=values.name%2Cvalues.date%2Cvalues.target.hash%2Cnext");
             return Task.FromResult(RecordingHttpMessageHandler.CreateJsonResponse(new BitbucketTagPageResponse
             {
@@ -270,7 +269,7 @@ public sealed class BitbucketClientTests
                 }));
             }
 
-            requestUri.Should().Contain("q=target.hash");
+            requestUri.Should().Contain("fields=values.name%2Cvalues.date%2Cvalues.target.hash%2Cnext");
             return Task.FromResult(RecordingHttpMessageHandler.CreateJsonResponse(new BitbucketTagPageResponse
             {
                 Values =
@@ -455,6 +454,49 @@ public sealed class BitbucketClientTests
         // Assert
         first.Should().BeEmpty();
         second.Should().BeEmpty();
+        handler.SendCalls.Should().Be(1);
+    }
+
+    [Fact(DisplayName = "GetTagsByCommitHashAsync reuses cached repository tag payload across different commit lookups")]
+    [Trait("Category", "Unit")]
+    public async Task GetTagsByCommitHashAsyncWhenRepositoryTagsAreCachedReusesPayloadForAnotherCommit()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        using var handler = new RecordingHttpMessageHandler((request, _) =>
+        {
+            request.RequestUri!.ToString().Should().Contain("/repositories/workspace/repo-a/refs/tags");
+            return Task.FromResult(RecordingHttpMessageHandler.CreateJsonResponse(new BitbucketTagPageResponse
+            {
+                Values =
+                [
+                    new BitbucketTagDto { Name = "2.0.0", Target = new BitbucketTagTargetDto { Hash = "abcdef1" } },
+                    new BitbucketTagDto { Name = "1.0.0", Target = new BitbucketTagTargetDto { Hash = "abcdef2" } }
+                ]
+            }));
+        });
+        using var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://bitbucket.example.test/", UriKind.Absolute)
+        };
+        var transport = new BitbucketTransport(httpClient, Options.Create(new BitbucketOptions
+        {
+            Workspace = "workspace",
+            RetryCount = 0
+        }));
+        var client = new BitbucketClient(transport, Options.Create(new BitbucketOptions
+        {
+            Workspace = "workspace",
+            RetryCount = 0
+        }));
+
+        // Act
+        var first = await client.GetTagsByCommitHashAsync(new RepositorySlug("repo-a"), new CommitHash("abcdef1"), cts.Token);
+        var second = await client.GetTagsByCommitHashAsync(new RepositorySlug("repo-a"), new CommitHash("abcdef2"), cts.Token);
+
+        // Assert
+        first.Should().ContainSingle().Which.Name.Should().Be(new ArtifactVersion("2.0.0"));
+        second.Should().ContainSingle().Which.Name.Should().Be(new ArtifactVersion("1.0.0"));
         handler.SendCalls.Should().Be(1);
     }
 }

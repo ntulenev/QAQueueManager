@@ -75,11 +75,6 @@ internal sealed class BitbucketClient : IBitbucketClient
         CommitHash commitHash,
         CancellationToken cancellationToken)
     {
-        if (_tagLookupFailureCache.ContainsKey(repositorySlug))
-        {
-            return [];
-        }
-
         var cacheKey = $"{repositorySlug}@{commitHash}";
         if (_tagCache.TryGetValue(cacheKey, out var cachedTags))
         {
@@ -163,8 +158,46 @@ internal sealed class BitbucketClient : IBitbucketClient
         CommitHash commitHash,
         CancellationToken cancellationToken)
     {
+        var allTags = await GetRepositoryTagsAsync(repositorySlug, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<BitbucketTag> distinctTags = [.. allTags
+            .Where(tag => tag.TargetHash is { } targetHash && targetHash.Matches(commitHash))
+            .OrderBy(static tag => tag.Name, VersionNameComparer.Instance)];
+        _tagCache[cacheKey] = distinctTags;
+        return distinctTags;
+    }
+
+    private async Task<IReadOnlyList<BitbucketTag>> GetRepositoryTagsAsync(
+        RepositorySlug repositorySlug,
+        CancellationToken cancellationToken)
+    {
+        if (_repositoryTagCache.TryGetValue(repositorySlug, out var cachedTags))
+        {
+            return cachedTags;
+        }
+
+        var lazyTask = _repositoryTagInFlight.GetOrAdd(
+            repositorySlug,
+            _ => new Lazy<Task<IReadOnlyList<BitbucketTag>>>(
+                () => LoadRepositoryTagsCoreAsync(repositorySlug, cancellationToken),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+
+        try
+        {
+            return await lazyTask.Value.ConfigureAwait(false);
+        }
+        finally
+        {
+            _ = _repositoryTagInFlight.TryRemove(
+                new KeyValuePair<RepositorySlug, Lazy<Task<IReadOnlyList<BitbucketTag>>>>(repositorySlug, lazyTask));
+        }
+    }
+
+    private async Task<IReadOnlyList<BitbucketTag>> LoadRepositoryTagsCoreAsync(
+        RepositorySlug repositorySlug,
+        CancellationToken cancellationToken)
+    {
         var tags = new List<BitbucketTag>();
-        var next = BuildTagLookupUri(repositorySlug, commitHash);
+        var next = BuildRepositoryTagLookupUri(repositorySlug);
 
         while (next is not null)
         {
@@ -177,8 +210,8 @@ internal sealed class BitbucketClient : IBitbucketClient
             }
             catch (HttpRequestException)
             {
-                _tagLookupFailureCache[repositorySlug] = true;
-                return [];
+                _repositoryTagCache[repositorySlug] = [];
+                return _repositoryTagCache[repositorySlug];
             }
 
             if (response?.Values is not null)
@@ -199,18 +232,16 @@ internal sealed class BitbucketClient : IBitbucketClient
             .GroupBy(static tag => tag.Name.Value, StringComparer.OrdinalIgnoreCase)
             .Select(static group => group.First())
             .OrderBy(static tag => tag.Name, VersionNameComparer.Instance)];
-
-        _tagCache[cacheKey] = distinctTags;
+        _repositoryTagCache[repositorySlug] = distinctTags;
         return distinctTags;
     }
 
-    private Uri BuildTagLookupUri(RepositorySlug repositorySlug, CommitHash commitHash)
+    private Uri BuildRepositoryTagLookupUri(RepositorySlug repositorySlug)
     {
-        var q = $"target.hash = \"{commitHash.Value}\"";
         const string fields = "values.name,values.date,values.target.hash,next";
         var url =
             $"repositories/{_options.Workspace}/{Uri.EscapeDataString(repositorySlug.Value)}/refs/tags" +
-            $"?pagelen=100&q={Uri.EscapeDataString(q)}&fields={Uri.EscapeDataString(fields)}";
+            $"?pagelen=100&fields={Uri.EscapeDataString(fields)}";
 
         return new Uri(url, UriKind.Relative);
     }
@@ -235,7 +266,8 @@ internal sealed class BitbucketClient : IBitbucketClient
     private readonly BitbucketOptions _options;
     private readonly ConcurrentDictionary<string, BitbucketPullRequest?> _pullRequestCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, IReadOnlyList<BitbucketTag>> _tagCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<RepositorySlug, IReadOnlyList<BitbucketTag>> _repositoryTagCache = [];
     private readonly ConcurrentDictionary<string, Lazy<Task<BitbucketPullRequest?>>> _pullRequestInFlight = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, Lazy<Task<IReadOnlyList<BitbucketTag>>>> _tagInFlight = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<RepositorySlug, bool> _tagLookupFailureCache = [];
+    private readonly ConcurrentDictionary<RepositorySlug, Lazy<Task<IReadOnlyList<BitbucketTag>>>> _repositoryTagInFlight = [];
 }
