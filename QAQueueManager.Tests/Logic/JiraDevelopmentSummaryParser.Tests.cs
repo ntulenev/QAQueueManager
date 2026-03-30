@@ -1,19 +1,21 @@
 using FluentAssertions;
 
-using QAQueueManager.Logic;
+using QAQueueManager.Models.Domain;
 
 namespace QAQueueManager.Tests.Logic;
 
-public sealed class JiraDevelopmentSummaryParserTests
+public sealed class QaIssueDevelopmentStateTests
 {
     [Fact(DisplayName = "Parse reads direct pull request and branch counts")]
     [Trait("Category", "Unit")]
     public void ParseWhenSummaryContainsDirectCountsReturnsSnapshot()
     {
         // Act
-        var snapshot = JiraDevelopmentSummaryParser.Parse(/*lang=json,strict*/ """{"pullRequests":1,"branches":0}""");
+        var snapshot = QaIssueDevelopmentState.Parse(/*lang=json,strict*/ """{"pullRequests":1,"branches":0}""");
 
         // Assert
+        snapshot.HasSummaryPayload.Should().BeTrue();
+        snapshot.HasCode.Should().BeTrue();
         snapshot.PullRequestCount.Should().Be(1);
         snapshot.BranchCount.Should().Be(0);
         snapshot.HasKnownNoDevelopment.Should().BeFalse();
@@ -27,7 +29,7 @@ public sealed class JiraDevelopmentSummaryParserTests
         const string summary = /*lang=json,strict*/ """
             {"summary":{"pullrequest":{"overall":{"count":2}},"branch":{"overall":{"count":3}}}}
             """;
-        var snapshot = JiraDevelopmentSummaryParser.Parse(summary);
+        var snapshot = QaIssueDevelopmentState.Parse(summary);
 
         // Assert
         snapshot.PullRequestCount.Should().Be(2);
@@ -39,11 +41,28 @@ public sealed class JiraDevelopmentSummaryParserTests
     public void ParseWhenSummaryIsNotJsonReturnsUnknownCounts()
     {
         // Act
-        var snapshot = JiraDevelopmentSummaryParser.Parse("Development");
+        var snapshot = QaIssueDevelopmentState.Parse("Development");
 
         // Assert
+        snapshot.HasSummaryPayload.Should().BeTrue();
+        snapshot.HasCode.Should().BeTrue();
         snapshot.PullRequestCount.Should().BeNull();
         snapshot.BranchCount.Should().BeNull();
         snapshot.HasKnownNoDevelopment.Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "Parse treats explicit zero pull requests and branches as no code")]
+    [Trait("Category", "Unit")]
+    public void ParseWhenSummaryReportsNoDevelopmentReturnsNoCodeState()
+    {
+        // Act
+        var snapshot = QaIssueDevelopmentState.Parse(/*lang=json,strict*/ """{"pullRequests":0,"branches":0}""");
+
+        // Assert
+        snapshot.HasSummaryPayload.Should().BeTrue();
+        snapshot.HasCode.Should().BeFalse();
+        snapshot.HasKnownNoDevelopment.Should().BeTrue();
+        snapshot.PullRequestCount.Should().Be(0);
+        snapshot.BranchCount.Should().Be(0);
     }
 }

@@ -52,4 +52,51 @@ public sealed class QaIssueTests
         teams.Should().ContainSingle()
             .Which.Should().Be(TeamName.NoTeam);
     }
+
+    [Fact(DisplayName = "HasCode returns false when development summary explicitly reports no development")]
+    [Trait("Category", "Unit")]
+    public void HasCodeWhenDevelopmentSummaryReportsZeroPullRequestsAndBranchesReturnsFalse()
+    {
+        // Arrange
+        var developmentSummary = /*lang=json,strict*/ """{"pullRequests":0,"branches":0}""";
+        var issue = new QaIssue(
+            new JiraIssueId(1003),
+            new JiraIssueKey("QA-3"),
+            "Summary",
+            new JiraIssueStatus("Open"),
+            "QA Engineer",
+            developmentSummary,
+            [],
+            null);
+
+        // Act
+        var hasCode = issue.HasCode;
+
+        // Assert
+        hasCode.Should().BeFalse();
+        issue.DevelopmentState.HasKnownNoDevelopment.Should().BeTrue();
+    }
+
+    [Fact(DisplayName = "HasCode returns true for non-empty unparseable development summary")]
+    [Trait("Category", "Unit")]
+    public void HasCodeWhenDevelopmentSummaryIsNonEmptyButUnknownReturnsTrue()
+    {
+        // Arrange
+        var issue = new QaIssue(
+            new JiraIssueId(1004),
+            new JiraIssueKey("QA-4"),
+            "Summary",
+            new JiraIssueStatus("Open"),
+            "QA Engineer",
+            "Development",
+            [],
+            null);
+
+        // Act
+        var hasCode = issue.HasCode;
+
+        // Assert
+        hasCode.Should().BeTrue();
+        issue.DevelopmentState.HasKnownNoDevelopment.Should().BeFalse();
+    }
 }

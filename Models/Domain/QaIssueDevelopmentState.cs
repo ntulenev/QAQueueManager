@@ -1,37 +1,73 @@
 using System.Globalization;
 using System.Text.Json;
 
-namespace QAQueueManager.Logic;
+namespace QAQueueManager.Models.Domain;
 
 /// <summary>
-/// Extracts branch and pull request counts from Jira Development field summaries.
+/// Represents the parsed state of the Jira Development field.
 /// </summary>
-internal static class JiraDevelopmentSummaryParser
+internal readonly record struct QaIssueDevelopmentState(
+    bool HasSummaryPayload,
+    int? PullRequestCount,
+    int? BranchCount)
 {
     /// <summary>
-    /// Parses a raw Jira Development field summary.
+    /// Parses the raw Jira Development field summary into a normalized state.
     /// </summary>
-    /// <param name="developmentSummary">The raw development summary string.</param>
-    /// <returns>The extracted count snapshot.</returns>
-    public static JiraDevelopmentSummarySnapshot Parse(string? developmentSummary)
+    /// <param name="developmentSummary">The raw development summary.</param>
+    /// <returns>The parsed development state.</returns>
+    public static QaIssueDevelopmentState Parse(string? developmentSummary)
     {
         if (string.IsNullOrWhiteSpace(developmentSummary))
         {
             return default;
         }
 
+        var trimmedSummary = developmentSummary.Trim();
+        if (trimmedSummary == "{}")
+        {
+            return new QaIssueDevelopmentState(
+                HasSummaryPayload: false,
+                PullRequestCount: 0,
+                BranchCount: 0);
+        }
+
         try
         {
-            using var document = JsonDocument.Parse(developmentSummary);
-            return new JiraDevelopmentSummarySnapshot(
-                FindCount(document.RootElement, _pullRequestAliases),
-                FindCount(document.RootElement, _branchAliases));
+            using var document = JsonDocument.Parse(trimmedSummary);
+            return new QaIssueDevelopmentState(
+                HasSummaryPayload: true,
+                PullRequestCount: FindCount(document.RootElement, _pullRequestAliases),
+                BranchCount: FindCount(document.RootElement, _branchAliases));
         }
         catch (JsonException)
         {
-            return default;
+            return new QaIssueDevelopmentState(
+                HasSummaryPayload: true,
+                PullRequestCount: null,
+                BranchCount: null);
         }
     }
+
+    /// <summary>
+    /// Gets a value indicating whether the issue should be treated as code-linked.
+    /// </summary>
+    public bool HasCode => HasSummaryPayload && !HasKnownNoDevelopment;
+
+    /// <summary>
+    /// Gets a value indicating whether the summary confidently reports no linked pull requests or branches.
+    /// </summary>
+    public bool HasKnownNoDevelopment => PullRequestCount == 0 && BranchCount == 0;
+
+    /// <summary>
+    /// Gets a value indicating whether the summary confidently reports no linked pull requests.
+    /// </summary>
+    public bool HasNoPullRequests => PullRequestCount == 0;
+
+    /// <summary>
+    /// Gets a value indicating whether the summary confidently reports no linked branches.
+    /// </summary>
+    public bool HasNoBranches => BranchCount == 0;
 
     private static int? FindCount(JsonElement element, IReadOnlySet<string> aliases)
     {

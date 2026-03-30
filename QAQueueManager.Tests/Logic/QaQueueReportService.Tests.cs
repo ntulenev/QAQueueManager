@@ -178,6 +178,45 @@ public sealed class QaQueueReportServiceTests
         report.Teams.Should().BeEmpty();
     }
 
+    [Fact(DisplayName = "BuildAsync treats issues with explicit zero pull requests and branches as no-code issues")]
+    [Trait("Category", "Unit")]
+    public async Task BuildAsyncWhenIssueExplicitlyReportsNoDevelopmentDoesNotSendItToCodeLoader()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var noDevelopmentIssue = TestData.CreateIssue(
+            3007,
+            "QA-26",
+            developmentSummary: /*lang=json,strict*/ """{"pullRequests":0,"branches":0}""");
+
+        var jiraIssueSearchClient = new Mock<IJiraIssueSearchClient>(MockBehavior.Strict);
+        jiraIssueSearchClient
+            .Setup(client => client.SearchIssuesAsync(It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync([noDevelopmentIssue]);
+
+        var codeIssueDetailsLoader = new Mock<IQaCodeIssueDetailsLoader>(MockBehavior.Strict);
+        codeIssueDetailsLoader
+            .Setup(loader => loader.LoadAsync(
+                It.Is<IReadOnlyList<QaIssue>>(issues => issues.Count == 0),
+                It.Is<IProgress<QaQueueBuildProgress>?>(reporter => reporter == null),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync([]);
+
+        var service = new QaQueueReportService(
+            jiraIssueSearchClient.Object,
+            codeIssueDetailsLoader.Object,
+            Options.Create(CreateJiraOptions()),
+            Options.Create(CreateReportOptions()));
+
+        // Act
+        var report = await service.BuildAsync(progress: null, cts.Token);
+
+        // Assert
+        report.NoCodeIssues.Should().ContainSingle().Which.Key.Should().Be(new JiraIssueKey("QA-26"));
+        report.Repositories.Should().BeEmpty();
+        report.Teams.Should().BeEmpty();
+    }
+
     [Fact(DisplayName = "BuildAsync skips empty team sections when processed issues yield no repository entries")]
     [Trait("Category", "Unit")]
     public async Task BuildAsyncWhenProcessedIssueHasNoResolutionsSkipsEmptyTeamSection()

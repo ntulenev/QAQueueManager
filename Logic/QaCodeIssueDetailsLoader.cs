@@ -99,9 +99,9 @@ internal sealed class QaCodeIssueDetailsLoader : IQaCodeIssueDetailsLoader
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var developmentSummary = JiraDevelopmentSummaryParser.Parse(issue.DevelopmentSummary);
+        var developmentState = issue.DevelopmentState;
 
-        if (developmentSummary.HasKnownNoDevelopment)
+        if (developmentState.HasKnownNoDevelopment)
         {
             return new ProcessedCodeIssue(
                 issue,
@@ -115,10 +115,10 @@ internal sealed class QaCodeIssueDetailsLoader : IQaCodeIssueDetailsLoader
         IReadOnlyList<JiraPullRequestLink> pullRequests;
         IReadOnlyList<JiraBranchLink> branches;
 
-        if (developmentSummary.HasNoPullRequests)
+        if (developmentState.HasNoPullRequests)
         {
             pullRequests = [];
-            branches = developmentSummary.HasNoBranches
+            branches = developmentState.HasNoBranches
                 ? []
                 : await _jiraDevelopmentClient.GetBranchesAsync(issue.Id, cancellationToken).ConfigureAwait(false);
         }
@@ -127,7 +127,7 @@ internal sealed class QaCodeIssueDetailsLoader : IQaCodeIssueDetailsLoader
             pullRequests = await _jiraDevelopmentClient
                 .GetPullRequestsAsync(issue.Id, cancellationToken)
                 .ConfigureAwait(false);
-            branches = pullRequests.Count == 0 && !developmentSummary.HasNoBranches
+            branches = pullRequests.Count == 0 && !developmentState.HasNoBranches
                 ? await _jiraDevelopmentClient.GetBranchesAsync(issue.Id, cancellationToken).ConfigureAwait(false)
                 : [];
         }

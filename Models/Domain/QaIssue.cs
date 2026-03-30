@@ -22,9 +22,14 @@ internal sealed record QaIssue(
     DateTimeOffset? UpdatedAt)
 {
     /// <summary>
+    /// Gets the normalized development state derived from the raw Jira field payload.
+    /// </summary>
+    public QaIssueDevelopmentState DevelopmentState => QaIssueDevelopmentState.Parse(DevelopmentSummary);
+
+    /// <summary>
     /// Gets a value indicating whether the issue is linked to code.
     /// </summary>
-    public bool HasCode => !string.IsNullOrWhiteSpace(DevelopmentSummary) && DevelopmentSummary.Trim() != "{}";
+    public bool HasCode => DevelopmentState.HasCode;
 
     /// <summary>
     /// Returns the issue teams, falling back to the configured no-team token when none exist.
