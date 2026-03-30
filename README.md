@@ -61,6 +61,7 @@ Edit [`appsettings.json`](C:/Users/ntyulenev/Documents/Code/QAQueueManager/appse
 - `TargetBranch`: branch used to validate merge status
 - `PdfOutputPath`: output path for PDF export
 - `ExcelOutputPath`: output path for Excel export
+- `OldReportsPath`: optional folder with previous Excel reports used to restore manual row markup
 - `MaxParallelism`: maximum number of issues processed in parallel, default `4`
 - `HideNoCodeIssues`: hides issues without code links when `true`
 - `OpenAfterGeneration`: opens the generated PDF after run when `true`
@@ -94,6 +95,7 @@ Edit [`appsettings.json`](C:/Users/ntyulenev/Documents/Code/QAQueueManager/appse
     "TargetBranch": "master",
     "PdfOutputPath": "qa-queue-report.pdf",
     "ExcelOutputPath": "qa-queue-report.xlsx",
+    "OldReportsPath": "OldReports",
     "MaxParallelism": 4,
     "HideNoCodeIssues": false,
     "OpenAfterGeneration": true
@@ -156,6 +158,14 @@ The Excel export is a single workbook.
 - Jira issue keys are hyperlinks
 - pull request links are included when available
 
+If `Report:OldReportsPath` is configured, the tool looks for the newest `*.xlsx` file in that folder and tries to restore manual markup from it into the newly generated workbook.
+
+- rows are matched by an internal hidden `MarkupKey`
+- for merged rows the key includes team or sheet name, repository, Jira issue key, and artifact version
+- for non-merged rows the key includes team or sheet name, repository, and Jira issue key
+- only real manual changes are restored and reported: non-empty comments and custom row fill colors
+- unchanged rows are ignored and are not listed in the final `Excel markup merge` console block
+
 ### Output Examples
 
 ![Output example 1](IMG1.png)
@@ -183,4 +193,5 @@ dotnet build
 - Artifact versions are resolved from Bitbucket tags attached to merge commits.
 - If no tag is found for a merged change, the report shows `Version not found`.
 - Excel sheet names are trimmed automatically to fit Excel limits.
+- `OldReportsPath` is optional. If the folder is missing, empty, or contains no valid Excel reports, generation continues without markup restore.
 - `OpenAfterGeneration` currently opens the PDF output after the run.
