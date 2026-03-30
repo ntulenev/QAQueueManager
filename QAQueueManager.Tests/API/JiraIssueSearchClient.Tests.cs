@@ -60,7 +60,7 @@ public sealed class JiraIssueSearchClientTests
             }
 
             requestUri.Should().Contain("search/jql");
-            requestUri.Should().Contain("fields=summary%2Cstatus%2Cupdated%2Ccustomfield_dev%2Ccustomfield_team");
+            requestUri.Should().Contain("fields=summary%2Cstatus%2Cassignee%2Cupdated%2Ccustomfield_dev%2Ccustomfield_team");
             return Task.FromResult(RecordingHttpMessageHandler.CreateJsonResponse(new JiraSearchResponse
             {
                 Issues = [issuePage1],
@@ -210,7 +210,7 @@ public sealed class JiraIssueSearchClientTests
         {
             var requestUri = request.RequestUri!.ToString();
             requestUri.Should().Contain("search/jql");
-            requestUri.Should().Contain("fields=summary%2Cstatus%2Cupdated%2Ccustomfield_dev");
+            requestUri.Should().Contain("fields=summary%2Cstatus%2Cassignee%2Cupdated%2Ccustomfield_dev");
             requestUri.Should().NotContain("rest/api/3/field");
             return Task.FromResult(RecordingHttpMessageHandler.CreateJsonResponse(new JiraSearchResponse
             {
