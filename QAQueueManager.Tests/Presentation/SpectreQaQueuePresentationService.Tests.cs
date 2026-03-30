@@ -1,8 +1,12 @@
 using FluentAssertions;
 
+using Microsoft.Extensions.Options;
+
+using QAQueueManager.Models.Configuration;
 using QAQueueManager.Models.Domain;
 using QAQueueManager.Models.Telemetry;
 using QAQueueManager.Presentation;
+using QAQueueManager.Presentation.Shared;
 using QAQueueManager.Tests.Testing;
 
 using Spectre.Console;
@@ -17,7 +21,7 @@ public sealed class SpectreQaQueuePresentationServiceTests
     public async Task RenderWhenReportIsRepositoryBasedWritesExpectedOutput()
     {
         // Arrange
-        var service = new SpectreQaQueuePresentationService();
+        var service = new SpectreQaQueuePresentationService(CreateDocumentBuilder());
         var report = TestData.CreateReport();
 
         // Act
@@ -36,7 +40,7 @@ public sealed class SpectreQaQueuePresentationServiceTests
     public async Task RenderExportPathsWritesExportedFileLocations()
     {
         // Arrange
-        var service = new SpectreQaQueuePresentationService();
+        var service = new SpectreQaQueuePresentationService(CreateDocumentBuilder());
 
         // Act
         var act = async () => await RunWithTestConsoleAsync(() =>
@@ -54,7 +58,7 @@ public sealed class SpectreQaQueuePresentationServiceTests
     public async Task RenderExecutionSummaryWritesTelemetryOutput()
     {
         // Arrange
-        var service = new SpectreQaQueuePresentationService();
+        var service = new SpectreQaQueuePresentationService(CreateDocumentBuilder());
         var telemetry = new HttpRequestTelemetrySummary(
             RequestCount: 3,
             RetryCount: 1,
@@ -100,7 +104,7 @@ public sealed class SpectreQaQueuePresentationServiceTests
     public async Task RenderExcelMarkupSummaryWritesMergeDetails()
     {
         // Arrange
-        var service = new SpectreQaQueuePresentationService();
+        var service = new SpectreQaQueuePresentationService(CreateDocumentBuilder());
         var summary = new ExcelMarkupMergeSummary(
             "C:\\reports\\old",
             "C:\\reports\\old\\qa-queue-report-1.xlsx",
@@ -136,4 +140,10 @@ public sealed class SpectreQaQueuePresentationServiceTests
             AnsiConsole.Console = original;
         }
     }
+
+    private static QaQueueReportDocumentBuilder CreateDocumentBuilder() =>
+        new(Options.Create(new JiraOptions
+        {
+            BaseUrl = new Uri("https://jira.example.test/", UriKind.Absolute)
+        }));
 }

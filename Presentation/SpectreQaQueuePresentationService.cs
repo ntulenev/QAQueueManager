@@ -3,6 +3,7 @@ using System.Globalization;
 using QAQueueManager.Abstractions;
 using QAQueueManager.Models.Domain;
 using QAQueueManager.Models.Telemetry;
+using QAQueueManager.Presentation.Shared;
 
 using Spectre.Console;
 
@@ -13,44 +14,47 @@ namespace QAQueueManager.Presentation;
 /// </summary>
 internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationService
 {
-    /// <summary>
-    /// Renders the supplied report to the console.
-    /// </summary>
-    /// <param name="report">The report to render.</param>
+    public SpectreQaQueuePresentationService(QaQueueReportDocumentBuilder documentBuilder)
+    {
+        ArgumentNullException.ThrowIfNull(documentBuilder);
+
+        _documentBuilder = documentBuilder;
+    }
+
+    /// <inheritdoc />
     public void Render(QaQueueReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
 
-        var repositoryCount = report.IsGroupedByTeam
-            ? report.Teams.Sum(static team => team.Repositories.Count)
-            : report.Repositories.Count;
+        var document = _documentBuilder.Build(report);
+        var header = document.Header;
 
-        AnsiConsole.Write(new Rule($"[bold yellow]{Escape(report.Title)}[/]"));
-        AnsiConsole.MarkupLine($"[grey]Generated:[/] {report.GeneratedAt:yyyy-MM-dd HH:mm:ss zzz}");
-        AnsiConsole.MarkupLine($"[grey]Target branch:[/] {Escape(report.TargetBranch.Value)}");
-        AnsiConsole.MarkupLine($"[grey]JQL:[/] {Escape(report.Jql)}");
-        if (report.IsGroupedByTeam)
+        AnsiConsole.Write(new Rule($"[bold yellow]{Escape(header.Title)}[/]"));
+        AnsiConsole.MarkupLine($"[grey]Generated:[/] {Escape(header.GeneratedAt)}");
+        AnsiConsole.MarkupLine($"[grey]Target branch:[/] {Escape(header.TargetBranch)}");
+        AnsiConsole.MarkupLine($"[grey]JQL:[/] {Escape(header.Jql)}");
+        if (document.IsGroupedByTeam)
         {
-            AnsiConsole.MarkupLine($"[grey]Grouping:[/] by team field {Escape(report.TeamGroupingField)}");
-            AnsiConsole.MarkupLine($"[grey]Teams:[/] {report.Teams.Count}");
+            AnsiConsole.MarkupLine($"[grey]Grouping:[/] by team field {Escape(header.TeamGroupingField)}");
+            AnsiConsole.MarkupLine($"[grey]Teams:[/] {header.TeamCount.ToString(CultureInfo.InvariantCulture)}");
         }
 
         AnsiConsole.MarkupLine(
-            $"[grey]Totals:[/] no-code={report.NoCodeIssues.Count}, repos={repositoryCount}, hide-no-code={report.HideNoCodeIssues}");
+            $"[grey]Totals:[/] no-code={header.NoCodeIssueCount}, repos={header.RepositoryCount}, hide-no-code={document.HideNoCodeIssues}");
         AnsiConsole.WriteLine();
 
-        if (report.IsGroupedByTeam)
+        if (document.IsGroupedByTeam)
         {
-            RenderTeamSections(report);
+            RenderTeamSections(document);
             return;
         }
 
-        if (!report.HideNoCodeIssues)
+        if (!document.HideNoCodeIssues)
         {
-            RenderNoCodeSection("QA tasks without code", report.NoCodeIssues);
+            RenderNoCodeSection("QA tasks without code", document.NoCodeIssues);
         }
 
-        foreach (var repository in report.Repositories)
+        foreach (var repository in document.Repositories)
         {
             RenderRepositorySection(repository);
         }
@@ -71,11 +75,11 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
 
         AnsiConsole.WriteLine();
         AnsiConsole.Write(new Rule("[bold yellow]HTTP telemetry[/]"));
-        AnsiConsole.MarkupLine($"[grey]Elapsed:[/] {Escape(FormatDuration(totalDuration))}");
+        AnsiConsole.MarkupLine($"[grey]Elapsed:[/] {Escape(QaQueuePresentationFormatting.FormatDuration(totalDuration))}");
         AnsiConsole.MarkupLine($"[grey]Requests:[/] {telemetry.RequestCount.ToString(CultureInfo.InvariantCulture)}");
         AnsiConsole.MarkupLine($"[grey]Retries:[/] {telemetry.RetryCount.ToString(CultureInfo.InvariantCulture)}");
-        AnsiConsole.MarkupLine($"[grey]Downloaded:[/] {Escape(FormatBytes(telemetry.ResponseBytes))}");
-        AnsiConsole.MarkupLine($"[grey]HTTP time:[/] {Escape(FormatDuration(telemetry.TotalDuration))}");
+        AnsiConsole.MarkupLine($"[grey]Downloaded:[/] {Escape(QaQueuePresentationFormatting.FormatBytes(telemetry.ResponseBytes))}");
+        AnsiConsole.MarkupLine($"[grey]HTTP time:[/] {Escape(QaQueuePresentationFormatting.FormatDuration(telemetry.TotalDuration))}");
 
         if (telemetry.Endpoints.Count == 0)
         {
@@ -101,9 +105,9 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
                 Escape(endpoint.Endpoint),
                 endpoint.RequestCount.ToString(CultureInfo.InvariantCulture),
                 endpoint.RetryCount.ToString(CultureInfo.InvariantCulture),
-                Escape(FormatBytes(endpoint.ResponseBytes)),
-                Escape(FormatDuration(endpoint.TotalDuration)),
-                Escape(FormatDuration(endpoint.MaxDuration)));
+                Escape(QaQueuePresentationFormatting.FormatBytes(endpoint.ResponseBytes)),
+                Escape(QaQueuePresentationFormatting.FormatDuration(endpoint.TotalDuration)),
+                Escape(QaQueuePresentationFormatting.FormatDuration(endpoint.MaxDuration)));
         }
 
         AnsiConsole.Write(table);
@@ -137,13 +141,13 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
         AnsiConsole.Write(table);
     }
 
-    private static void RenderTeamSections(QaQueueReport report)
+    private static void RenderTeamSections(QaQueuePresentationDocument document)
     {
-        foreach (var team in report.Teams)
+        foreach (var team in document.Teams)
         {
-            AnsiConsole.Write(new Rule($"[bold yellow]Team: {Escape(team.Team.Value)}[/]"));
+            AnsiConsole.Write(new Rule($"[bold yellow]Team: {Escape(team.TeamName)}[/]"));
 
-            if (!report.HideNoCodeIssues)
+            if (!document.HideNoCodeIssues)
             {
                 RenderNoCodeSection("QA tasks without code", team.NoCodeIssues);
             }
@@ -155,7 +159,7 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
         }
     }
 
-    private static void RenderNoCodeSection(string title, IReadOnlyList<QaIssue> issues)
+    private static void RenderNoCodeSection(string title, IReadOnlyList<QaQueuePresentationNoCodeIssueRow> issues)
     {
         AnsiConsole.Write(new Rule($"[bold]{Escape(title)}[/]"));
 
@@ -173,14 +177,13 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
         _ = table.AddColumn("Last updated");
         _ = table.AddColumn("Summary");
 
-        for (var index = 0; index < issues.Count; index++)
+        foreach (var issue in issues)
         {
-            var issue = issues[index];
             _ = table.AddRow(
-                (index + 1).ToString(CultureInfo.InvariantCulture),
-                Escape(issue.Key.Value),
-                Escape(issue.Status.Value),
-                Escape(FormatDate(issue.UpdatedAt)),
+                issue.Index.ToString(CultureInfo.InvariantCulture),
+                RenderIssueKey(issue.Issue),
+                Escape(issue.Status),
+                Escape(issue.LastUpdated),
                 Escape(issue.Summary));
         }
 
@@ -188,9 +191,9 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
         AnsiConsole.WriteLine();
     }
 
-    private static void RenderRepositorySection(QaRepositorySection repository)
+    private static void RenderRepositorySection(QaQueuePresentationRepositorySection repository)
     {
-        AnsiConsole.Write(new Rule($"[bold]{Escape(repository.RepositoryFullName.Value)}[/]"));
+        AnsiConsole.Write(new Rule($"[bold]{Escape(repository.RepositoryName)}[/]"));
 
         if (repository.WithoutTargetMerge.Count > 0)
         {
@@ -206,18 +209,17 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
             _ = table.AddColumn("Last updated");
             _ = table.AddColumn("Summary");
 
-            for (var index = 0; index < repository.WithoutTargetMerge.Count; index++)
+            foreach (var item in repository.WithoutTargetMerge)
             {
-                var item = repository.WithoutTargetMerge[index];
                 _ = table.AddRow(
-                    (index + 1).ToString(CultureInfo.InvariantCulture),
-                    Escape(item.Issue.Key.Value),
-                    Escape(item.Issue.Status.Value),
-                    Escape(FormatPullRequests(item.PullRequests)),
-                    Escape(FormatBranchNames(item.BranchNames)),
-                    FormatAlertCell(item.HasDuplicateIssue),
-                    Escape(FormatDate(item.Issue.UpdatedAt)),
-                    Escape(item.Issue.Summary));
+                    item.Index.ToString(CultureInfo.InvariantCulture),
+                    RenderIssueKey(item.Issue),
+                    Escape(item.Status),
+                    Escape(item.PullRequests),
+                    Escape(item.Branches),
+                    RenderAlertCell(item.Alert),
+                    Escape(item.LastUpdated),
+                    Escape(item.Summary));
             }
 
             AnsiConsole.Write(table);
@@ -242,99 +244,36 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
         _ = mergedTable.AddColumn("Last updated");
         _ = mergedTable.AddColumn("Summary");
 
-        for (var index = 0; index < repository.MergedIssueRows.Count; index++)
+        foreach (var item in repository.MergedIssueRows)
         {
-            var item = repository.MergedIssueRows[index];
             _ = mergedTable.AddRow(
-                (index + 1).ToString(CultureInfo.InvariantCulture),
-                FormatIssueCell(item),
-                Escape(item.Issue.Status.Value),
-                Escape(FormatMergedPullRequests(item.PullRequests)),
-                Escape(item.Version.Value),
-                FormatAlertCell(item.HasDuplicateIssue),
-                Escape(FormatBranchNames(item.PullRequests.Select(static pr => pr.SourceBranch))),
-                Escape(FormatBranchNames(item.PullRequests.Select(static pr => pr.DestinationBranch))),
-                Escape(FormatDate(item.Issue.UpdatedAt)),
-                Escape(item.Issue.Summary));
+                item.Index.ToString(CultureInfo.InvariantCulture),
+                RenderIssueKey(item.Issue),
+                Escape(item.Status),
+                Escape(item.PullRequests),
+                Escape(item.ArtifactVersion),
+                RenderAlertCell(item.Alert),
+                Escape(item.Source),
+                Escape(item.Target),
+                Escape(item.LastUpdated),
+                Escape(item.Summary));
         }
 
         AnsiConsole.Write(mergedTable);
         AnsiConsole.WriteLine();
     }
 
-    private static string FormatPullRequests(IReadOnlyList<JiraPullRequestLink> pullRequests)
-    {
-        return pullRequests.Count == 0
-            ? "-"
-            : string.Join(
-            ", ",
-            pullRequests.Select(static pr => $"#{pr.Id}:{pr.Status.Value}->{pr.DestinationBranch.Value}"));
-    }
+    private static string RenderIssueKey(QaQueuePresentationIssueRef issue) =>
+        issue.Highlight
+            ? $"[bold yellow]{Escape(issue.Key)}[/]"
+            : Escape(issue.Key);
 
-    private static string FormatMergedPullRequests(IReadOnlyList<QaMergedPullRequest> pullRequests) => pullRequests.Count == 0 ? "-" : string.Join(", ", pullRequests.Select(static pr => $"#{pr.PullRequestId}"));
-
-    private static string FormatBranchNames(IEnumerable<BranchName> branchNames)
-    {
-        var values = branchNames
-            .Select(static branch => branch.Value)
-            .Where(static branch => !string.IsNullOrWhiteSpace(branch))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        return values.Count == 0 ? "-" : string.Join(", ", values);
-    }
-
-    private static string FormatDate(DateTimeOffset? value) =>
-        value?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "-";
-
-    private static string FormatDuration(TimeSpan value)
-    {
-        if (value.TotalMinutes >= 1)
-        {
-            var wholeMinutes = (int)value.TotalMinutes;
-            var seconds = value - TimeSpan.FromMinutes(wholeMinutes);
-            return string.Format(
-                CultureInfo.InvariantCulture,
-                "{0}m {1:0.000}s",
-                wholeMinutes,
-                seconds.TotalSeconds);
-        }
-
-        if (value.TotalSeconds >= 1)
-        {
-            return string.Format(CultureInfo.InvariantCulture, "{0:0.000}s", value.TotalSeconds);
-        }
-
-        return string.Format(CultureInfo.InvariantCulture, "{0:0}ms", value.TotalMilliseconds);
-    }
-
-    private static string FormatBytes(long value)
-    {
-        const double kiloByte = 1024d;
-        const double megaByte = kiloByte * 1024d;
-
-        if (value >= megaByte)
-        {
-            return string.Format(CultureInfo.InvariantCulture, "{0:0.##} MB", value / megaByte);
-        }
-
-        if (value >= kiloByte)
-        {
-            return string.Format(CultureInfo.InvariantCulture, "{0:0.##} KB", value / kiloByte);
-        }
-
-        return string.Format(CultureInfo.InvariantCulture, "{0} B", value);
-    }
-
-    private static string FormatIssueCell(QaMergedIssueVersionRow item) =>
-        item.HasDuplicateIssue
-            ? $"[bold yellow]{Escape(item.Issue.Key.Value)}[/]"
-            : Escape(item.Issue.Key.Value);
-
-    private static string FormatAlertCell(bool hasDuplicateIssue) =>
-        hasDuplicateIssue
+    private static string RenderAlertCell(string alert) =>
+        string.Equals(alert, "MULTI-ENTRY", StringComparison.Ordinal)
             ? "[bold yellow]MULTI-ENTRY[/]"
-            : Escape("-");
+            : Escape(alert);
 
     private static string Escape(string? value) => Markup.Escape(string.IsNullOrWhiteSpace(value) ? "-" : value);
+
+    private readonly QaQueueReportDocumentBuilder _documentBuilder;
 }

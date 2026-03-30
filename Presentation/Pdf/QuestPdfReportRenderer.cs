@@ -1,10 +1,8 @@
 using System.Globalization;
 
-using Microsoft.Extensions.Options;
-
 using QAQueueManager.Abstractions;
-using QAQueueManager.Models.Configuration;
 using QAQueueManager.Models.Domain;
+using QAQueueManager.Presentation.Shared;
 
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -17,29 +15,20 @@ namespace QAQueueManager.Presentation.Pdf;
 /// </summary>
 internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="QuestPdfReportRenderer"/> class.
-    /// </summary>
-    /// <param name="jiraOptions">The Jira configuration options used to build issue links.</param>
-    public QuestPdfReportRenderer(IOptions<JiraOptions> jiraOptions)
+    public QuestPdfReportRenderer(QaQueueReportDocumentBuilder documentBuilder)
     {
-        ArgumentNullException.ThrowIfNull(jiraOptions);
+        ArgumentNullException.ThrowIfNull(documentBuilder);
 
-        _jiraIssueBaseUrl = new Uri(jiraOptions.Value.BaseUrl.ToString().TrimEnd('/') + "/browse/", UriKind.Absolute);
+        _documentBuilder = documentBuilder;
     }
 
-    /// <summary>
-    /// Renders the supplied report to PDF bytes.
-    /// </summary>
-    /// <param name="report">The report to render.</param>
-    /// <returns>The generated PDF bytes.</returns>
+    /// <inheritdoc />
     public byte[] Render(QaQueueReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
 
-        var repositoryCount = report.IsGroupedByTeam
-            ? report.Teams.Sum(static team => team.Repositories.Count)
-            : report.Repositories.Count;
+        var document = _documentBuilder.Build(report);
+        var header = document.Header;
 
         return Document.Create(container =>
         {
@@ -51,15 +40,15 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
 
                 page.Header().Column(column =>
                 {
-                    _ = column.Item().Text(report.Title).Bold().FontSize(18);
-                    _ = column.Item().Text($"Generated: {report.GeneratedAt:yyyy-MM-dd HH:mm:ss zzz}");
-                    _ = column.Item().Text($"Target branch: {report.TargetBranch.Value}");
-                    _ = column.Item().Text($"JQL: {report.Jql}");
-                    _ = column.Item().Text($"Totals: no-code={report.NoCodeIssues.Count}, repos={repositoryCount}, hide-no-code={report.HideNoCodeIssues}");
-                    if (report.IsGroupedByTeam)
+                    _ = column.Item().Text(header.Title).Bold().FontSize(18);
+                    _ = column.Item().Text($"Generated: {header.GeneratedAt}");
+                    _ = column.Item().Text($"Target branch: {header.TargetBranch}");
+                    _ = column.Item().Text($"JQL: {header.Jql}");
+                    _ = column.Item().Text($"Totals: no-code={header.NoCodeIssueCount}, repos={header.RepositoryCount}, hide-no-code={document.HideNoCodeIssues}");
+                    if (document.IsGroupedByTeam)
                     {
-                        _ = column.Item().Text($"Grouping: by team field {report.TeamGroupingField}");
-                        _ = column.Item().Text($"Teams: {report.Teams.Count}");
+                        _ = column.Item().Text($"Grouping: by team field {header.TeamGroupingField}");
+                        _ = column.Item().Text($"Teams: {header.TeamCount}");
                     }
                 });
 
@@ -67,18 +56,18 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
                 {
                     column.Spacing(12);
 
-                    if (report.IsGroupedByTeam)
+                    if (document.IsGroupedByTeam)
                     {
-                        ComposeTeamSections(column, report);
+                        ComposeTeamSections(column, document);
                     }
                     else
                     {
-                        if (!report.HideNoCodeIssues)
+                        if (!document.HideNoCodeIssues)
                         {
-                            ComposeNoCodeSection(column, "QA tasks without code", report.NoCodeIssues);
+                            ComposeNoCodeSection(column, "QA tasks without code", document.NoCodeIssues);
                         }
 
-                        foreach (var repository in report.Repositories)
+                        foreach (var repository in document.Repositories)
                         {
                             ComposeRepositorySection(column, repository);
                         }
@@ -96,13 +85,13 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
         }).GeneratePdf();
     }
 
-    private void ComposeTeamSections(ColumnDescriptor column, QaQueueReport report)
+    private static void ComposeTeamSections(ColumnDescriptor column, QaQueuePresentationDocument document)
     {
-        foreach (var team in report.Teams)
+        foreach (var team in document.Teams)
         {
-            _ = column.Item().PaddingTop(4).Text($"Team: {team.Team.Value}").Bold().FontSize(15);
+            _ = column.Item().PaddingTop(4).Text($"Team: {team.TeamName}").Bold().FontSize(15);
 
-            if (!report.HideNoCodeIssues)
+            if (!document.HideNoCodeIssues)
             {
                 ComposeNoCodeSection(column, "QA tasks without code", team.NoCodeIssues);
             }
@@ -114,10 +103,10 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
         }
     }
 
-    private void ComposeNoCodeSection(
+    private static void ComposeNoCodeSection(
         ColumnDescriptor column,
         string title,
-        IReadOnlyList<QaIssue> issues)
+        IReadOnlyList<QaQueuePresentationNoCodeIssueRow> issues)
     {
         _ = column.Item().Text(title).Bold().FontSize(14);
 
@@ -141,17 +130,16 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
 
             ComposeHeader(table, "Issue", "Status", "Assignee", "Last updated", "Summary");
 
-            for (var index = 0; index < issues.Count; index++)
+            foreach (var issue in issues)
             {
-                var issue = issues[index];
-                ComposeIssueRow(table, index + 1, issue, issue.Status.Value, issue.Assignee, FormatDate(issue.UpdatedAt), issue.Summary);
+                ComposeIssueRow(table, issue.Index, issue.Issue, issue.Status, issue.Assignee, issue.LastUpdated, issue.Summary);
             }
         });
     }
 
-    private void ComposeRepositorySection(ColumnDescriptor column, QaRepositorySection repository)
+    private static void ComposeRepositorySection(ColumnDescriptor column, QaQueuePresentationRepositorySection repository)
     {
-        _ = column.Item().PaddingTop(4).Text(repository.RepositoryFullName.Value).Bold().FontSize(14);
+        _ = column.Item().PaddingTop(4).Text(repository.RepositoryName).Bold().FontSize(14);
 
         if (repository.WithoutTargetMerge.Count > 0)
         {
@@ -174,20 +162,19 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
 
                 ComposeHeader(table, "Issue", "Status", "Assignee", "PRs", "Branches", "Alert", "Last updated", "Summary");
 
-                for (var index = 0; index < repository.WithoutTargetMerge.Count; index++)
+                foreach (var item in repository.WithoutTargetMerge)
                 {
-                    var item = repository.WithoutTargetMerge[index];
                     ComposeIssueRow(
                         table,
-                        index + 1,
+                        item.Index,
                         item.Issue,
-                        item.Issue.Status.Value,
-                        item.Issue.Assignee,
-                        string.Join(", ", item.PullRequests.Select(static pr => $"#{pr.Id}:{pr.Status.Value}->{pr.DestinationBranch.Value}")),
-                        FormatBranchNames(item.BranchNames),
-                        FormatAlertText(item.HasDuplicateIssue),
-                        FormatDate(item.Issue.UpdatedAt),
-                        item.Issue.Summary);
+                        item.Status,
+                        item.Assignee,
+                        item.PullRequests,
+                        item.Branches,
+                        item.Alert,
+                        item.LastUpdated,
+                        item.Summary);
                 }
             });
         }
@@ -218,23 +205,21 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
 
             ComposeHeader(table, "Issue", "Status", "Assignee", "PRs", "Artifact version", "Alert", "Source", "Target", "Last updated", "Summary");
 
-            for (var index = 0; index < repository.MergedIssueRows.Count; index++)
+            foreach (var item in repository.MergedIssueRows)
             {
-                var item = repository.MergedIssueRows[index];
                 ComposeIssueRow(
-                        table,
-                        index + 1,
-                        item.Issue,
-                        item.HasDuplicateIssue,
-                        item.Issue.Status.Value,
-                        item.Issue.Assignee,
-                        FormatMergedPullRequests(item.PullRequests),
-                    item.Version.Value,
-                    FormatAlertText(item.HasDuplicateIssue),
-                    FormatBranchNames(item.PullRequests.Select(static pr => pr.SourceBranch)),
-                    FormatBranchNames(item.PullRequests.Select(static pr => pr.DestinationBranch)),
-                    FormatDate(item.Issue.UpdatedAt),
-                    item.Issue.Summary);
+                    table,
+                    item.Index,
+                    item.Issue,
+                    item.Status,
+                    item.Assignee,
+                    item.PullRequests,
+                    item.ArtifactVersion,
+                    item.Alert,
+                    item.Source,
+                    item.Target,
+                    item.LastUpdated,
+                    item.Summary);
             }
         });
     }
@@ -251,16 +236,13 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
         });
     }
 
-    private void ComposeIssueRow(TableDescriptor table, int index, QaIssue issue, params string[] values) =>
-        ComposeIssueRow(table, index, issue, false, values);
-
-    private void ComposeIssueRow(TableDescriptor table, int index, QaIssue issue, bool highlightIssue, params string[] values)
+    private static void ComposeIssueRow(TableDescriptor table, int index, QaQueuePresentationIssueRef issue, params string[] values)
     {
         _ = table.Cell().Element(StyleBodyCell).Text(index.ToString(CultureInfo.InvariantCulture));
         table.Cell().Element(StyleBodyCell).Text(text =>
         {
-            var hyperlink = text.Hyperlink(issue.Key.Value, BuildIssueUrl(issue.Key)).Underline();
-            _ = highlightIssue
+            var hyperlink = text.Hyperlink(issue.Key, issue.Url).Underline();
+            _ = issue.Highlight
                 ? hyperlink.FontColor(Colors.Orange.Darken2).SemiBold()
                 : hyperlink.FontColor(Colors.Blue.Darken2);
         });
@@ -282,22 +264,6 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
         }
     }
 
-    private static string FormatDate(DateTimeOffset? value) =>
-        value?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "-";
-
-    private static string FormatMergedPullRequests(IReadOnlyList<QaMergedPullRequest> pullRequests) => pullRequests.Count == 0 ? "-" : string.Join(", ", pullRequests.Select(static pr => $"#{pr.PullRequestId}"));
-
-    private static string FormatBranchNames(IEnumerable<BranchName> branchNames)
-    {
-        var values = branchNames
-            .Select(static branch => branch.Value)
-            .Where(static branch => !string.IsNullOrWhiteSpace(branch))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        return values.Count == 0 ? "-" : string.Join(", ", values);
-    }
-
     private static IContainer StyleHeaderCell(IContainer container)
         => container
             .Border(1)
@@ -311,12 +277,6 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
             .BorderColor(Colors.Grey.Lighten2)
             .Padding(4);
 
-    private string BuildIssueUrl(JiraIssueKey issueKey) =>
-        new Uri(_jiraIssueBaseUrl, Uri.EscapeDataString(issueKey.Value)).ToString();
-
-    private static string FormatAlertText(bool hasDuplicateIssue) =>
-        hasDuplicateIssue ? MULTI_ENTRY_ALERT_TEXT : "-";
-
     private const string MULTI_ENTRY_ALERT_TEXT = "MULTI-ENTRY";
-    private readonly Uri _jiraIssueBaseUrl;
+    private readonly QaQueueReportDocumentBuilder _documentBuilder;
 }

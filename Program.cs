@@ -12,6 +12,7 @@ using QAQueueManager.Logic;
 using QAQueueManager.Models.Configuration;
 using QAQueueManager.Models.Domain;
 using QAQueueManager.Presentation;
+using QAQueueManager.Presentation.Shared;
 using QAQueueManager.Presentation.Excel;
 using QAQueueManager.Presentation.Pdf;
 using QAQueueManager.Transport;
@@ -79,6 +80,7 @@ builder.Services.AddTransient<IArtifactVersionResolver, ArtifactVersionResolver>
 builder.Services.AddTransient<IRepositoryResolutionBuilder, RepositoryResolutionBuilder>();
 builder.Services.AddTransient<IQaCodeIssueDetailsLoader, QaCodeIssueDetailsLoader>();
 builder.Services.AddTransient<IQaQueueReportBuilder, QaQueueReportBuilder>();
+builder.Services.AddTransient<QaQueueReportDocumentBuilder>();
 builder.Services.AddTransient<IQaQueueReportService, QaQueueReportService>();
 builder.Services.AddTransient<IQaQueueWorkflowRunner, QaQueueWorkflowRunner>();
 builder.Services.AddTransient<IQaQueuePresentationService, SpectreQaQueuePresentationService>();
