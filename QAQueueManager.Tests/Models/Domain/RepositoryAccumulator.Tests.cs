@@ -34,7 +34,7 @@ public sealed class RepositoryAccumulatorTests
         built.RepositorySlug.Should().Be(repositorySlug);
         built.WithoutTargetMerge.Select(static item => item.Issue.Key.Value).Should().ContainInOrder("QA-10", "QA-20");
         built.MergedIssueRows.Should().HaveCount(2);
-        built.MergedIssueRows.All(static row => row.HasMultipleVersions).Should().BeTrue();
+        built.MergedIssueRows.All(static row => !row.HasDuplicateIssue).Should().BeTrue();
         built.MergedIssueRows.Select(static row => row.Version.Value).Should().ContainInOrder("1.0.0", "2.0.0");
         built.MergedIssueRows[1].PullRequests.Should().ContainSingle().Which.PullRequestId.Should().Be(new PullRequestId(302));
     }

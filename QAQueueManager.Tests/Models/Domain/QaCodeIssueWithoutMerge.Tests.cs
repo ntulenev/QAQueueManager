@@ -7,7 +7,7 @@ namespace QAQueueManager.Tests.Models.Domain;
 
 public sealed class QaCodeIssueWithoutMergeTests
 {
-    [Fact(DisplayName = "QaCodeIssueWithoutMerge exposes related pull requests")]
+    [Fact(DisplayName = "QaCodeIssueWithoutMerge exposes related pull requests and duplicate flag")]
     [Trait("Category", "Unit")]
     public void QaCodeIssueWithoutMergeExposesRelatedPullRequests()
     {
@@ -22,9 +22,11 @@ public sealed class QaCodeIssueWithoutMergeTests
             new RepositoryFullName("workspace/repo-a"),
             new RepositorySlug("repo-a"),
             [pullRequest],
-            [branch.Name]);
+            [branch.Name],
+            HasDuplicateIssue: true);
 
         // Assert
         noMergeIssue.PullRequests.Should().ContainSingle().Which.Should().Be(pullRequest);
+        noMergeIssue.HasDuplicateIssue.Should().BeTrue();
     }
 }

@@ -124,7 +124,8 @@ internal static class TestData
                     new RepositoryFullName("workspace/repo-a"),
                     new RepositorySlug("repo-a"),
                     [CreateJiraPullRequestLink()],
-                    [new BranchName("feature/qa-2")])
+                    [new BranchName("feature/qa-2")],
+                    HasDuplicateIssue: false)
             ],
             [
                 new QaMergedIssueVersionRow(
@@ -133,7 +134,7 @@ internal static class TestData
                     new RepositorySlug("repo-a"),
                     new ArtifactVersion("1.2.3"),
                     [CreateMergedPullRequest()],
-                    HasMultipleVersions: true)
+                    HasDuplicateIssue: true)
             ]);
 
         IReadOnlyList<QaTeamSection> teams = groupedByTeam

@@ -7,9 +7,9 @@ namespace QAQueueManager.Tests.Models.Domain;
 
 public sealed class QaMergedIssueVersionRowTests
 {
-    [Fact(DisplayName = "QaMergedIssueVersionRow exposes multiple-version flag")]
+    [Fact(DisplayName = "QaMergedIssueVersionRow exposes duplicate-issue flag")]
     [Trait("Category", "Unit")]
-    public void QaMergedIssueVersionRowExposesMultipleVersionFlag()
+    public void QaMergedIssueVersionRowExposesDuplicateIssueFlag()
     {
         // Arrange
         var issue = TestData.CreateIssue();
@@ -22,9 +22,9 @@ public sealed class QaMergedIssueVersionRowTests
             new RepositorySlug("repo-a"),
             new ArtifactVersion("1.2.3"),
             [mergedPullRequest],
-            HasMultipleVersions: true);
+            HasDuplicateIssue: true);
 
         // Assert
-        mergedRow.HasMultipleVersions.Should().BeTrue();
+        mergedRow.HasDuplicateIssue.Should().BeTrue();
     }
 }
