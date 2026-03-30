@@ -2,9 +2,8 @@ using Microsoft.Extensions.Options;
 
 using QAQueueManager.Abstractions;
 using QAQueueManager.Models.Configuration;
-using QAQueueManager.Models.Domain;
 
-namespace QAQueueManager.Logic;
+namespace QAQueueManager.Models.Domain;
 
 /// <summary>
 /// Builds the final QA queue report from processed Jira and Bitbucket data.

@@ -10,6 +10,7 @@ using QAQueueManager.Abstractions;
 using QAQueueManager.API;
 using QAQueueManager.Logic;
 using QAQueueManager.Models.Configuration;
+using QAQueueManager.Models.Domain;
 using QAQueueManager.Presentation;
 using QAQueueManager.Presentation.Excel;
 using QAQueueManager.Presentation.Pdf;
