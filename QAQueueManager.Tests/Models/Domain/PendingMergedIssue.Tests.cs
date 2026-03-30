@@ -18,8 +18,9 @@ public sealed class PendingMergedIssueTests
         // Act
         var pendingMergedIssue = new PendingMergedIssue(
             issue,
-            new RepositoryFullName("workspace/repo-a"),
-            new RepositorySlug("repo-a"),
+            new RepositoryRef(
+                new RepositoryFullName("workspace/repo-a"),
+                new RepositorySlug("repo-a")),
             mergedPullRequest);
 
         // Assert
@@ -41,8 +42,9 @@ public sealed class PendingMergedIssueTests
         // Act
         var pendingMergedIssue = PendingMergedIssue.Create(
             issue,
-            new RepositoryFullName("workspace/repo-a"),
-            new RepositorySlug("repo-a"),
+            new RepositoryRef(
+                new RepositoryFullName("workspace/repo-a"),
+                new RepositorySlug("repo-a")),
             bitbucketPullRequest,
             new ArtifactVersion("2.0.0"));
 

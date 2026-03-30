@@ -114,15 +114,16 @@ internal static class TestData
             developmentSummary: /*lang=json,strict*/ """{"pullRequests":1}""",
             teams: [new TeamName("Core")],
             updatedAt: new DateTimeOffset(2026, 3, 20, 9, 30, 0, TimeSpan.Zero));
-
-        var repository = new QaRepositorySection(
+        var repository = new RepositoryRef(
             new RepositoryFullName("workspace/repo-a"),
-            new RepositorySlug("repo-a"),
+            new RepositorySlug("repo-a"));
+
+        var repositorySection = new QaRepositorySection(
+            repository,
             [
                 new QaCodeIssueWithoutMerge(
                     mergedIssue,
-                    new RepositoryFullName("workspace/repo-a"),
-                    new RepositorySlug("repo-a"),
+                    repository,
                     [CreateJiraPullRequestLink()],
                     [new BranchName("feature/qa-2")],
                     HasDuplicateIssue: false)
@@ -130,8 +131,7 @@ internal static class TestData
             [
                 new QaMergedIssueVersionRow(
                     mergedIssue,
-                    new RepositoryFullName("workspace/repo-a"),
-                    new RepositorySlug("repo-a"),
+                    repository,
                     new ArtifactVersion("1.2.3"),
                     [CreateMergedPullRequest()],
                     HasDuplicateIssue: true)
@@ -142,10 +142,10 @@ internal static class TestData
                 new QaTeamSection(
                     new TeamName("Core"),
                     [noCodeIssue],
-                    [repository])
+                    [repositorySection])
             ]
             : [];
-        IReadOnlyList<QaRepositorySection> repositories = groupedByTeam ? [] : [repository];
+        IReadOnlyList<QaRepositorySection> repositories = groupedByTeam ? [] : [repositorySection];
 
         return new QaQueueReport(
             new DateTimeOffset(2026, 3, 20, 10, 0, 0, TimeSpan.Zero),

@@ -18,7 +18,12 @@ public sealed class ProcessedCodeIssueTests
         var bitbucketPullRequest = TestData.CreateBitbucketPullRequest(updatedOn: new DateTimeOffset(2026, 3, 20, 10, 0, 0, TimeSpan.Zero));
         var withoutMerge = new IssueWithoutMergeData([pullRequest], [branch.Name]);
         var merged = new MergedIssueData(bitbucketPullRequest, new ArtifactVersion("1.2.3"));
-        var resolution = new RepositoryResolution(new RepositoryFullName("workspace/repo-a"), new RepositorySlug("repo-a"), withoutMerge, merged);
+        var resolution = new RepositoryResolution(
+            new RepositoryRef(
+                new RepositoryFullName("workspace/repo-a"),
+                new RepositorySlug("repo-a")),
+            withoutMerge,
+            merged);
 
         // Act
         var processedIssue = new ProcessedCodeIssue(issue, [resolution]);

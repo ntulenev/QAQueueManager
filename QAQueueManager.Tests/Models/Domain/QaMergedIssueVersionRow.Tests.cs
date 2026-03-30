@@ -18,8 +18,9 @@ public sealed class QaMergedIssueVersionRowTests
         // Act
         var mergedRow = new QaMergedIssueVersionRow(
             issue,
-            new RepositoryFullName("workspace/repo-a"),
-            new RepositorySlug("repo-a"),
+            new RepositoryRef(
+                new RepositoryFullName("workspace/repo-a"),
+                new RepositorySlug("repo-a")),
             new ArtifactVersion("1.2.3"),
             [mergedPullRequest],
             HasDuplicateIssue: true);

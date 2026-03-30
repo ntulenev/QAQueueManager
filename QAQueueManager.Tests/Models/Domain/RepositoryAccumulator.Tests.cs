@@ -14,7 +14,8 @@ public sealed class RepositoryAccumulatorTests
         // Arrange
         var repositoryFullName = new RepositoryFullName("workspace/repo-a");
         var repositorySlug = new RepositorySlug("repo-a");
-        var accumulator = new RepositoryAccumulator(repositoryFullName, repositorySlug);
+        var repository = new RepositoryRef(repositoryFullName, repositorySlug);
+        var accumulator = new RepositoryAccumulator(repository);
         var laterIssue = TestData.CreateIssue(id: 1002, key: "QA-20", developmentSummary: /*lang=json,strict*/ """{"pullRequests":1}""");
         var earlierIssue = TestData.CreateIssue(id: 1001, key: "QA-10", developmentSummary: /*lang=json,strict*/ """{"pullRequests":1}""");
         var sharedIssue = TestData.CreateIssue(id: 1003, key: "QA-30", developmentSummary: /*lang=json,strict*/ """{"pullRequests":1}""");
@@ -49,8 +50,9 @@ public sealed class RepositoryAccumulatorTests
         var repositorySlug = new RepositorySlug("repo-a");
 
         // Act
-        var created = RepositoryAccumulator.GetOrAdd(repositories, repositoryFullName, repositorySlug);
-        var reused = RepositoryAccumulator.GetOrAdd(repositories, repositoryFullName, repositorySlug);
+        var repository = new RepositoryRef(repositoryFullName, repositorySlug);
+        var created = RepositoryAccumulator.GetOrAdd(repositories, repository);
+        var reused = RepositoryAccumulator.GetOrAdd(repositories, repository);
 
         // Assert
         repositories.Should().ContainSingle();

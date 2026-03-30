@@ -50,8 +50,9 @@ public sealed class QaQueueReportServiceTests
                     codeIssue,
                     [
                         new RepositoryResolution(
-                            new RepositoryFullName("workspace/repo-a"),
-                            new RepositorySlug("repo-a"),
+                            new RepositoryRef(
+                                new RepositoryFullName("workspace/repo-a"),
+                                new RepositorySlug("repo-a")),
                             new IssueWithoutMergeData([], [new BranchName("feature/qa-2")]),
                             null)
                     ])
@@ -113,8 +114,9 @@ public sealed class QaQueueReportServiceTests
                     codeIssue,
                     [
                 new RepositoryResolution(
-                            new RepositoryFullName("workspace/repo-b"),
-                            new RepositorySlug("repo-b"),
+                            new RepositoryRef(
+                                new RepositoryFullName("workspace/repo-b"),
+                                new RepositorySlug("repo-b")),
                             new IssueWithoutMergeData([], [new BranchName("feature/qa-11")]),
                             null)
                     ])
@@ -281,8 +283,9 @@ public sealed class QaQueueReportServiceTests
                     codeIssue,
                     [
                         new RepositoryResolution(
-                            new RepositoryFullName("workspace/repo-c"),
-                            new RepositorySlug("repo-c"),
+                            new RepositoryRef(
+                                new RepositoryFullName("workspace/repo-c"),
+                                new RepositorySlug("repo-c")),
                             null,
                             new MergedIssueData(pullRequest, new ArtifactVersion("2.3.4")))
                     ])
@@ -347,13 +350,15 @@ public sealed class QaQueueReportServiceTests
                     codeIssue,
                     [
                         new RepositoryResolution(
-                            new RepositoryFullName("workspace/repo-c"),
-                            new RepositorySlug("repo-c"),
+                            new RepositoryRef(
+                                new RepositoryFullName("workspace/repo-c"),
+                                new RepositorySlug("repo-c")),
                             null,
                             new MergedIssueData(pullRequestA, new ArtifactVersion("1.0.1"))),
                         new RepositoryResolution(
-                            new RepositoryFullName("workspace/repo-c"),
-                            new RepositorySlug("repo-c"),
+                            new RepositoryRef(
+                                new RepositoryFullName("workspace/repo-c"),
+                                new RepositorySlug("repo-c")),
                             null,
                             new MergedIssueData(pullRequestB, new ArtifactVersion("1.0.5")))
                     ])
@@ -403,13 +408,15 @@ public sealed class QaQueueReportServiceTests
                     codeIssue,
                     [
                         new RepositoryResolution(
-                            new RepositoryFullName("workspace/repo-a"),
-                            new RepositorySlug("repo-a"),
+                            new RepositoryRef(
+                                new RepositoryFullName("workspace/repo-a"),
+                                new RepositorySlug("repo-a")),
                             null,
                             new MergedIssueData(pullRequestA, new ArtifactVersion("2.0.0"))),
                         new RepositoryResolution(
-                            new RepositoryFullName("workspace/repo-b"),
-                            new RepositorySlug("repo-b"),
+                            new RepositoryRef(
+                                new RepositoryFullName("workspace/repo-b"),
+                                new RepositorySlug("repo-b")),
                             null,
                             new MergedIssueData(pullRequestB, new ArtifactVersion("3.0.0")))
                     ])
@@ -457,13 +464,15 @@ public sealed class QaQueueReportServiceTests
                     codeIssue,
                     [
                         new RepositoryResolution(
-                            new RepositoryFullName("workspace/repo-a"),
-                            new RepositorySlug("repo-a"),
+                            new RepositoryRef(
+                                new RepositoryFullName("workspace/repo-a"),
+                                new RepositorySlug("repo-a")),
                             null,
                             new MergedIssueData(mergedPullRequest, new ArtifactVersion("4.0.0"))),
                         new RepositoryResolution(
-                            new RepositoryFullName("workspace/repo-b"),
-                            new RepositorySlug("repo-b"),
+                            new RepositoryRef(
+                                new RepositoryFullName("workspace/repo-b"),
+                                new RepositorySlug("repo-b")),
                             new IssueWithoutMergeData([], [nonMergedBranch]),
                             null)
                     ])

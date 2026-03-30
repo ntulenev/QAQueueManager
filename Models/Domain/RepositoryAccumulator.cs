@@ -9,24 +9,22 @@ internal sealed class RepositoryAccumulator
     /// Gets or creates a repository accumulator for the supplied repository.
     /// </summary>
     /// <param name="repositories">The accumulator dictionary keyed by repository full name.</param>
-    /// <param name="repositoryFullName">The repository full name.</param>
-    /// <param name="repositorySlug">The repository slug.</param>
+    /// <param name="repository">The repository identity.</param>
     /// <returns>The matching repository accumulator.</returns>
     public static RepositoryAccumulator GetOrAdd(
         IDictionary<string, RepositoryAccumulator> repositories,
-        RepositoryFullName repositoryFullName,
-        RepositorySlug repositorySlug)
+        RepositoryRef repository)
     {
         ArgumentNullException.ThrowIfNull(repositories);
 
-        var repositoryKey = repositoryFullName.Value;
+        var repositoryKey = repository.FullName.Value;
 
         if (repositories.TryGetValue(repositoryKey, out var accumulator))
         {
             return accumulator;
         }
 
-        accumulator = new RepositoryAccumulator(repositoryFullName, repositorySlug);
+        accumulator = new RepositoryAccumulator(repository);
         repositories[repositoryKey] = accumulator;
         return accumulator;
     }
@@ -34,23 +32,26 @@ internal sealed class RepositoryAccumulator
     /// <summary>
     /// Initializes a new instance of the <see cref="RepositoryAccumulator"/> class.
     /// </summary>
-    /// <param name="repositoryFullName">The repository full name.</param>
-    /// <param name="repositorySlug">The repository slug.</param>
-    public RepositoryAccumulator(RepositoryFullName repositoryFullName, RepositorySlug repositorySlug)
+    /// <param name="repository">The repository identity.</param>
+    public RepositoryAccumulator(RepositoryRef repository)
     {
-        RepositoryFullName = repositoryFullName;
-        RepositorySlug = repositorySlug;
+        Repository = repository;
     }
+
+    /// <summary>
+    /// Gets the repository identity.
+    /// </summary>
+    public RepositoryRef Repository { get; }
 
     /// <summary>
     /// Gets the full repository name.
     /// </summary>
-    public RepositoryFullName RepositoryFullName { get; }
+    public RepositoryFullName RepositoryFullName => Repository.FullName;
 
     /// <summary>
     /// Gets the repository slug.
     /// </summary>
-    public RepositorySlug RepositorySlug { get; }
+    public RepositorySlug RepositorySlug => Repository.Slug;
 
     /// <summary>
     /// Gets the issues without a target-branch merge.
@@ -79,8 +80,7 @@ internal sealed class RepositoryAccumulator
 
         WithoutTargetMerge.Add(new QaCodeIssueWithoutMerge(
             issue,
-            RepositoryFullName,
-            RepositorySlug,
+            Repository,
             pullRequests,
             branchNames,
             HasDuplicateIssue: false));
@@ -99,8 +99,7 @@ internal sealed class RepositoryAccumulator
 
         MergedItems.Add(PendingMergedIssue.Create(
             issue,
-            RepositoryFullName,
-            RepositorySlug,
+            Repository,
             pullRequest,
             version));
     }
@@ -122,7 +121,7 @@ internal sealed class RepositoryAccumulator
             .ThenBy(static item => item.Issue.Key.Value, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        return new QaRepositorySection(RepositoryFullName, RepositorySlug, withoutMerge, mergedRows);
+        return new QaRepositorySection(Repository, withoutMerge, mergedRows);
     }
 
     private static List<QaMergedIssueVersionRow> BuildMergedIssueRows(IGrouping<JiraIssueId, PendingMergedIssue> group)
@@ -147,8 +146,7 @@ internal sealed class RepositoryAccumulator
         return [.. versions
             .Select(version => new QaMergedIssueVersionRow(
                 sample.Issue,
-                sample.RepositoryFullName,
-                sample.RepositorySlug,
+                sample.Repository,
                 version,
                 [.. pullRequests
                     .Where(pr => pr.Version == version)

@@ -130,7 +130,7 @@ internal sealed class QaQueueReportBuilder : IQaQueueReportBuilder
                 if (resolution.WithoutMerge is not null)
                 {
                     RepositoryAccumulator
-                        .GetOrAdd(repositories, resolution.RepositoryFullName, resolution.RepositorySlug)
+                        .GetOrAdd(repositories, resolution.Repository)
                         .AddWithoutMerge(
                             processedIssue.Issue,
                             resolution.WithoutMerge.PullRequests,
@@ -141,7 +141,7 @@ internal sealed class QaQueueReportBuilder : IQaQueueReportBuilder
                 if (resolution.Merged is not null)
                 {
                     RepositoryAccumulator
-                        .GetOrAdd(repositories, resolution.RepositoryFullName, resolution.RepositorySlug)
+                        .GetOrAdd(repositories, resolution.Repository)
                         .AddMerged(
                             processedIssue.Issue,
                             resolution.Merged.PullRequest,
@@ -175,8 +175,7 @@ internal sealed class QaQueueReportBuilder : IQaQueueReportBuilder
         IReadOnlyDictionary<JiraIssueId, int> occurrenceCounts)
     {
         return [.. repositorySections.Select(repository => new QaRepositorySection(
-            repository.RepositoryFullName,
-            repository.RepositorySlug,
+            repository.Repository,
             [.. repository.WithoutTargetMerge.Select(item => item with
             {
                 HasDuplicateIssue = occurrenceCounts.GetValueOrDefault(item.Issue.Id) > 1

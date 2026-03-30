@@ -19,8 +19,9 @@ public sealed class QaCodeIssueWithoutMergeTests
         // Act
         var noMergeIssue = new QaCodeIssueWithoutMerge(
             issue,
-            new RepositoryFullName("workspace/repo-a"),
-            new RepositorySlug("repo-a"),
+            new RepositoryRef(
+                new RepositoryFullName("workspace/repo-a"),
+                new RepositorySlug("repo-a")),
             [pullRequest],
             [branch.Name],
             HasDuplicateIssue: true);

@@ -71,7 +71,7 @@ internal sealed class RepositoryResolutionBuilder : IRepositoryResolutionBuilder
         foreach (var repositoryName in repositoryNames)
         {
             var repositoryFullName = new RepositoryFullName(repositoryName);
-            var repositorySlug = RepositorySlug.FromRepositoryFullName(repositoryFullName);
+            var repository = RepositoryRef.FromFullName(repositoryFullName);
             var repositoryPullRequests = developmentLinks.PullRequests
                 .Where(pr => string.Equals(pr.RepositoryFullName.Value, repositoryFullName.Value, StringComparison.OrdinalIgnoreCase))
                 .ToList();
@@ -96,8 +96,7 @@ internal sealed class RepositoryResolutionBuilder : IRepositoryResolutionBuilder
             if (mergedCandidates.Count == 0)
             {
                 resolutions.Add(CreateWithoutMergeResolution(
-                    repositoryFullName,
-                    repositorySlug,
+                    repository,
                     repositoryPullRequests,
                     repositoryBranches));
                 continue;
@@ -108,7 +107,7 @@ internal sealed class RepositoryResolutionBuilder : IRepositoryResolutionBuilder
             {
                 var resolution = await TryBuildMergedResolutionAsync(
                     repositoryFullName,
-                    repositorySlug,
+                    repository,
                     candidate,
                     cancellationToken).ConfigureAwait(false);
 
@@ -121,8 +120,7 @@ internal sealed class RepositoryResolutionBuilder : IRepositoryResolutionBuilder
             if (mergedResolutions.Count == 0)
             {
                 resolutions.Add(CreateWithoutMergeResolution(
-                    repositoryFullName,
-                    repositorySlug,
+                    repository,
                     repositoryPullRequests,
                     repositoryBranches));
                 continue;
@@ -164,22 +162,22 @@ internal sealed class RepositoryResolutionBuilder : IRepositoryResolutionBuilder
 
     private async Task<RepositoryResolution?> TryBuildMergedResolutionAsync(
         RepositoryFullName repositoryFullName,
-        RepositorySlug repositorySlug,
+        RepositoryRef repository,
         JiraPullRequestLink candidate,
         CancellationToken cancellationToken)
     {
-        if (repositorySlug == RepositorySlug.Unknown)
+        if (repository.Slug == RepositorySlug.Unknown)
         {
-            return BuildMergedFallbackResolution(repositoryFullName, repositorySlug, candidate);
+            return BuildMergedFallbackResolution(repositoryFullName, repository, candidate);
         }
 
         var bitbucketPullRequest = await _bitbucketClient
-            .GetPullRequestAsync(repositorySlug, candidate.Id, cancellationToken)
+            .GetPullRequestAsync(repository.Slug, candidate.Id, cancellationToken)
             .ConfigureAwait(false);
 
         if (bitbucketPullRequest is null)
         {
-            return BuildMergedFallbackResolution(repositoryFullName, repositorySlug, candidate);
+            return BuildMergedFallbackResolution(repositoryFullName, repository, candidate);
         }
 
         if (!bitbucketPullRequest.State.IsMerged ||
@@ -190,8 +188,7 @@ internal sealed class RepositoryResolutionBuilder : IRepositoryResolutionBuilder
 
         var version = await _artifactVersionResolver.ResolveAsync(bitbucketPullRequest, cancellationToken).ConfigureAwait(false);
         return new RepositoryResolution(
-            repositoryFullName,
-            repositorySlug,
+            repository,
             null,
             new MergedIssueData(bitbucketPullRequest, version));
     }
@@ -199,41 +196,37 @@ internal sealed class RepositoryResolutionBuilder : IRepositoryResolutionBuilder
     private static RepositoryResolution CreateUnknownWithoutMergeResolution()
     {
         return new RepositoryResolution(
-            RepositoryFullName.Unknown,
-            RepositorySlug.Unknown,
+            RepositoryRef.Unknown,
             new IssueWithoutMergeData([], []),
             null);
     }
 
     private static RepositoryResolution CreateWithoutMergeResolution(
-        RepositoryFullName repositoryFullName,
-        RepositorySlug repositorySlug,
+        RepositoryRef repository,
         IReadOnlyList<JiraPullRequestLink> pullRequests,
         IReadOnlyList<BranchName> branchNames)
     {
         return new RepositoryResolution(
-            repositoryFullName,
-            repositorySlug,
+            repository,
             new IssueWithoutMergeData(pullRequests, branchNames),
             null);
     }
 
     private static RepositoryResolution BuildMergedFallbackResolution(
         RepositoryFullName repositoryFullName,
-        RepositorySlug repositorySlug,
+        RepositoryRef repository,
         JiraPullRequestLink candidate)
     {
         return new RepositoryResolution(
-            repositoryFullName,
-            repositorySlug,
+            repository,
             null,
             new MergedIssueData(
                 new BitbucketPullRequest(
                     candidate.Id,
                     candidate.Status,
                     repositoryFullName,
-                    new RepositoryDisplayName(repositorySlug.Value),
-                    repositorySlug,
+                    new RepositoryDisplayName(repository.Slug.Value),
+                    repository.Slug,
                     candidate.SourceBranch,
                     candidate.DestinationBranch,
                     candidate.Url,
