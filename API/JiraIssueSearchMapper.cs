@@ -52,19 +52,18 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
             _ = values.TryGetValue("updated", out var updatedElement);
             _ = values.TryGetValue(developmentApiField, out var developmentElement);
 
-            var summary = _objectMapper.ExtractDisplayValue(summaryElement) ?? "-";
-            var status =
-                _objectMapper.ExtractDisplayValue(statusElement) ?? JiraIssueStatus.Unknown.Value;
+            var summary = _objectMapper.ExtractDisplayValue(summaryElement);
+            var status = _objectMapper.ExtractDisplayValue(statusElement);
             var assignee = ExtractAssignee(assigneeElement);
-            var development = _objectMapper.ExtractDisplayValue(developmentElement) ?? "{}";
+            var development = _objectMapper.ExtractDisplayValue(developmentElement);
             var teams = ExtractTeams(values, teamApiFields);
             var updatedAt = updatedElement.TryParseDate(_objectMapper.ExtractDisplayValue);
 
-            result.Add(new QaIssue(
+            result.Add(QaIssue.Create(
                 new JiraIssueId(issueId),
                 new JiraIssueKey(issue.Key),
                 summary,
-                new JiraIssueStatus(status),
+                status,
                 assignee,
                 development,
                 teams,
@@ -128,7 +127,7 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
     {
         if (assigneeElement.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
         {
-            return UNASSIGNED_ASSIGNEE;
+            return string.Empty;
         }
 
         if (assigneeElement.ValueKind == JsonValueKind.Object &&
@@ -142,9 +141,8 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
         }
 
         var assignee = _objectMapper.ExtractDisplayValue(assigneeElement);
-        return string.IsNullOrWhiteSpace(assignee) ? UNASSIGNED_ASSIGNEE : assignee.Trim();
+        return string.IsNullOrWhiteSpace(assignee) ? string.Empty : assignee.Trim();
     }
 
     private readonly IJiraObjectMapper _objectMapper;
-    private const string UNASSIGNED_ASSIGNEE = "-";
 }

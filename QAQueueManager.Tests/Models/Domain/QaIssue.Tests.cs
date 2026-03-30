@@ -6,6 +6,37 @@ namespace QAQueueManager.Tests.Models.Domain;
 
 public sealed class QaIssueTests
 {
+    [Fact(DisplayName = "Create normalizes defaults and de-duplicates teams")]
+    [Trait("Category", "Unit")]
+    public void CreateNormalizesDefaultsAndDeduplicatesTeams()
+    {
+        // Arrange
+        var teams = new[]
+        {
+            new TeamName("Core"),
+            new TeamName(" core "),
+            new TeamName("Platform")
+        };
+
+        // Act
+        var issue = QaIssue.Create(
+            new JiraIssueId(1000),
+            new JiraIssueKey("QA-0"),
+            "  ",
+            null,
+            "",
+            null,
+            teams,
+            null);
+
+        // Assert
+        issue.Summary.Should().Be("-");
+        issue.Status.Should().Be(JiraIssueStatus.Unknown);
+        issue.Assignee.Should().Be("-");
+        issue.DevelopmentSummary.Should().Be("{}");
+        issue.Teams.Should().ContainInOrder(new TeamName("Core"), new TeamName("Platform"));
+    }
+
     [Fact(DisplayName = "GetTeamsOrFallback returns configured teams when present")]
     [Trait("Category", "Unit")]
     public void GetTeamsOrFallbackWhenTeamsExistReturnsTeams()
