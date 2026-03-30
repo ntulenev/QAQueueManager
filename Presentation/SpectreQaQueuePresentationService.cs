@@ -109,6 +109,34 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
         AnsiConsole.Write(table);
     }
 
+    /// <inheritdoc />
+    public void RenderExcelMarkupSummary(ExcelMarkupMergeSummary summary)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(new Rule("[bold yellow]Excel markup merge[/]"));
+        AnsiConsole.MarkupLine($"[grey]Old reports folder:[/] {Escape(summary.OldReportsDirectoryPath)}");
+        AnsiConsole.MarkupLine($"[grey]Source workbook:[/] {Escape(summary.PreviousReportPath)}");
+        AnsiConsole.MarkupLine($"[grey]Merged rows:[/] {summary.MergedRowKeys.Count.ToString(CultureInfo.InvariantCulture)}");
+
+        if (summary.MergedRowKeys.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[grey]No matching rows received restored markup.[/]");
+            return;
+        }
+
+        var table = new Table().Border(TableBorder.Rounded).Expand();
+        _ = table.AddColumn("Merged row key");
+
+        foreach (var rowKey in summary.MergedRowKeys)
+        {
+            _ = table.AddRow(Escape(rowKey));
+        }
+
+        AnsiConsole.Write(table);
+    }
+
     private static void RenderTeamSections(QaQueueReport report)
     {
         foreach (var team in report.Teams)

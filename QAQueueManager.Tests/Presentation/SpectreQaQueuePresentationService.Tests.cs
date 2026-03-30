@@ -95,6 +95,31 @@ public sealed class SpectreQaQueuePresentationServiceTests
         output.Should().Contain("512 B");
     }
 
+    [Fact(DisplayName = "RenderExcelMarkupSummary writes merge details")]
+    [Trait("Category", "Unit")]
+    public async Task RenderExcelMarkupSummaryWritesMergeDetails()
+    {
+        // Arrange
+        var service = new SpectreQaQueuePresentationService();
+        var summary = new ExcelMarkupMergeSummary(
+            "C:\\reports\\old",
+            "C:\\reports\\old\\qa-queue-report-1.xlsx",
+            ["Core|workspace/repo-a|QA-2|1.2.3"]);
+
+        // Act
+        var output = await RunWithTestConsoleAsync(() =>
+        {
+            service.RenderExcelMarkupSummary(summary);
+            return Task.CompletedTask;
+        });
+
+        // Assert
+        output.Should().Contain("Excel markup merge");
+        output.Should().Contain("qa-queue-report-1.xlsx");
+        output.Should().Contain("Merged rows: 1");
+        output.Should().Contain("Core|workspace/repo-a|QA-2|1.2.3");
+    }
+
     private static async Task<string> RunWithTestConsoleAsync(Func<Task> action)
     {
         var original = AnsiConsole.Console;

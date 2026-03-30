@@ -78,6 +78,7 @@ internal sealed class QaQueueApplication : IQaQueueApplication
 
             if (result is not null)
             {
+                _presentationService.RenderExcelMarkupSummary(result.ExcelMarkupMergeSummary);
                 _presentationService.RenderExportPaths(result.PdfPath, result.ExcelPath);
             }
         }

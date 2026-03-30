@@ -27,4 +27,10 @@ internal interface IQaQueuePresentationService
     /// <param name="totalDuration">The total application execution time.</param>
     /// <param name="telemetry">The aggregated HTTP telemetry.</param>
     void RenderExecutionSummary(TimeSpan totalDuration, HttpRequestTelemetrySummary telemetry);
+
+    /// <summary>
+    /// Writes the Excel markup merge summary to the interactive console output.
+    /// </summary>
+    /// <param name="summary">The summary of restored manual Excel markup.</param>
+    void RenderExcelMarkupSummary(ExcelMarkupMergeSummary summary);
 }

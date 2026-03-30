@@ -22,7 +22,11 @@ public sealed class QaQueueApplicationTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var report = TestData.CreateReport();
-        var result = new QaQueueWorkflowResult(report, new ReportFilePath("exports\\qa-report.pdf"), new ReportFilePath("exports\\qa-report.xlsx"));
+        var markupMergeSummary = new ExcelMarkupMergeSummary(
+            "C:\\reports\\old",
+            "C:\\reports\\old\\qa-queue-report-1.xlsx",
+            ["Core|workspace/repo-a|QA-2|1.2.3"]);
+        var result = new QaQueueWorkflowResult(report, new ReportFilePath("exports\\qa-report.pdf"), new ReportFilePath("exports\\qa-report.xlsx"), markupMergeSummary);
         var launchCalls = 0;
         var workflowEvents = new List<string>();
         var workflowProgress = new Mock<IQaQueueWorkflowProgress>(MockBehavior.Strict);
@@ -42,6 +46,9 @@ public sealed class QaQueueApplicationTests
                 It.IsAny<TimeSpan>(),
                 It.Is<HttpRequestTelemetrySummary>(value => value == telemetrySummary)))
             .Callback(() => workflowEvents.Add("RenderTelemetry"));
+        presentationService
+            .Setup(service => service.RenderExcelMarkupSummary(It.Is<ExcelMarkupMergeSummary>(value => value == markupMergeSummary)))
+            .Callback(() => workflowEvents.Add("RenderExcelMarkup"));
 
         var workflowRunner = new Mock<IQaQueueWorkflowRunner>(MockBehavior.Strict);
         workflowRunner
@@ -98,6 +105,7 @@ public sealed class QaQueueApplicationTests
             "RenderReport",
             "LaunchPdf",
             "RenderTelemetry",
+            "RenderExcelMarkup",
             "RenderPaths");
     }
 
@@ -108,7 +116,8 @@ public sealed class QaQueueApplicationTests
         // Arrange
         using var cts = new CancellationTokenSource();
         var report = TestData.CreateReport();
-        var result = new QaQueueWorkflowResult(report, new ReportFilePath("exports\\qa-report.pdf"), new ReportFilePath("exports\\qa-report.xlsx"));
+        var markupMergeSummary = new ExcelMarkupMergeSummary(null, null, []);
+        var result = new QaQueueWorkflowResult(report, new ReportFilePath("exports\\qa-report.pdf"), new ReportFilePath("exports\\qa-report.xlsx"), markupMergeSummary);
         var launchCalls = 0;
         var workflowProgress = new Mock<IQaQueueWorkflowProgress>(MockBehavior.Strict);
         var telemetrySummary = new HttpRequestTelemetrySummary(0, 0, 0, TimeSpan.Zero, []);
@@ -121,6 +130,8 @@ public sealed class QaQueueApplicationTests
         presentationService.Setup(service => service.RenderExecutionSummary(
             It.IsAny<TimeSpan>(),
             It.Is<HttpRequestTelemetrySummary>(value => value == telemetrySummary))).Callback(() => { });
+        presentationService.Setup(service => service.RenderExcelMarkupSummary(
+            It.Is<ExcelMarkupMergeSummary>(value => value == markupMergeSummary))).Callback(() => { });
 
         var workflowRunner = new Mock<IQaQueueWorkflowRunner>(MockBehavior.Strict);
         workflowRunner
