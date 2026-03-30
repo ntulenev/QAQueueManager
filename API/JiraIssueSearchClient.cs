@@ -43,7 +43,7 @@ internal sealed class JiraIssueSearchClient : IJiraIssueSearchClient
     {
         var developmentApiField = await ResolveConfiguredFieldAsync(_options.DevelopmentField, cancellationToken).ConfigureAwait(false);
         var teamApiFields = await ResolveOptionalConfiguredFieldsAsync(_options.TeamField, cancellationToken).ConfigureAwait(false);
-        var requestedFieldList = new List<string> { "summary", "status", "updated", developmentApiField };
+        var requestedFieldList = new List<string> { "summary", "status", "assignee", "updated", developmentApiField };
         if (teamApiFields.Count > 0)
         {
             requestedFieldList.AddRange(teamApiFields);
