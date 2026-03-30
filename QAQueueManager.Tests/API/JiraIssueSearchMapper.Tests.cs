@@ -101,6 +101,7 @@ public sealed class JiraIssueSearchMapperTests
                 {
                     ["summary"] = JsonSerializer.SerializeToElement("Investigate flaky build"),
                     ["status"] = JsonSerializer.SerializeToElement(new { name = "In Progress" }),
+                    ["assignee"] = JsonSerializer.SerializeToElement(new { name = "qa-login", displayName = "Jane Doe" }),
                     ["updated"] = JsonSerializer.SerializeToElement("2026-03-20T10:15:00+00:00"),
                     ["development"] = JsonSerializer.SerializeToElement(/*lang=json,strict*/ """{"branches":1}"""),
                     ["customfield_100"] = JsonSerializer.SerializeToElement(TeamValues)
@@ -116,6 +117,7 @@ public sealed class JiraIssueSearchMapperTests
         issues[0].Id.Should().Be(new JiraIssueId(101));
         issues[0].Key.Should().Be(new JiraIssueKey("QA-101"));
         issues[0].Status.Should().Be(new JiraIssueStatus("In Progress"));
+        issues[0].Assignee.Should().Be("Jane Doe");
         issues[0].Teams.Should().ContainInOrder(new TeamName("Core"), new TeamName("Platform"));
         issues[0].UpdatedAt.Should().Be(new DateTimeOffset(2026, 3, 20, 10, 15, 0, TimeSpan.Zero));
     }
@@ -200,6 +202,7 @@ public sealed class JiraIssueSearchMapperTests
         mapped.Should().ContainSingle();
         mapped[0].Summary.Should().Be("-");
         mapped[0].Status.Should().Be(JiraIssueStatus.Unknown);
+        mapped[0].Assignee.Should().Be("-");
         mapped[0].DevelopmentSummary.Should().Be("{}");
         mapped[0].Teams.Should().BeEmpty();
         mapped[0].UpdatedAt.Should().BeNull();
