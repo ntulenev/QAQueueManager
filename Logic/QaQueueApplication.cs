@@ -53,18 +53,16 @@ internal sealed class QaQueueApplication : IQaQueueApplication
     {
         _requestTelemetryCollector.Reset();
         var totalStopwatch = Stopwatch.StartNew();
+        QaQueueWorkflowResult? result = null;
 
         try
         {
-            QaQueueWorkflowResult? result = null;
-
             await _workflowProgressHost.RunAsync(async progress =>
                 result = await _workflowRunner.RunAsync(progress, cancellationToken).ConfigureAwait(false)
                                                 ).ConfigureAwait(false);
 
             ArgumentNullException.ThrowIfNull(result);
             _presentationService.Render(result.Report);
-            _presentationService.RenderExportPaths(result.PdfPath, result.ExcelPath);
 
             if (_reportOptions.OpenAfterGeneration)
             {
@@ -77,6 +75,11 @@ internal sealed class QaQueueApplication : IQaQueueApplication
             _presentationService.RenderExecutionSummary(
                 totalStopwatch.Elapsed,
                 _requestTelemetryCollector.GetSummary());
+
+            if (result is not null)
+            {
+                _presentationService.RenderExportPaths(result.PdfPath, result.ExcelPath);
+            }
         }
     }
 

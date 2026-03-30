@@ -96,9 +96,9 @@ public sealed class QaQueueApplicationTests
             "RunHost",
             "RunWorkflow",
             "RenderReport",
-            "RenderPaths",
             "LaunchPdf",
-            "RenderTelemetry");
+            "RenderTelemetry",
+            "RenderPaths");
     }
 
     [Fact(DisplayName = "RunAsync skips PDF launch when automatic opening is disabled")]
