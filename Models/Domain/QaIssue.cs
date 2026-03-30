@@ -7,6 +7,7 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="Key">The Jira issue key.</param>
 /// <param name="Summary">The issue summary.</param>
 /// <param name="Status">The issue workflow status.</param>
+/// <param name="Assignee">The issue assignee display name.</param>
 /// <param name="DevelopmentSummary">The raw development field summary.</param>
 /// <param name="Teams">The resolved team names.</param>
 /// <param name="UpdatedAt">The last updated timestamp.</param>
@@ -15,6 +16,7 @@ internal sealed record QaIssue(
     JiraIssueKey Key,
     string Summary,
     JiraIssueStatus Status,
+    string Assignee,
     string DevelopmentSummary,
     IReadOnlyList<TeamName> Teams,
     DateTimeOffset? UpdatedAt)

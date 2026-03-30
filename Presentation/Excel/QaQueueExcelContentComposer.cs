@@ -68,11 +68,12 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                 [4] = 18,
                 [5] = 18,
                 [6] = 18,
-                [7] = 16,
+                [7] = 18,
                 [8] = 16,
-                [9] = 18,
-                [10] = 48,
-                [11] = 24,
+                [9] = 16,
+                [10] = 18,
+                [11] = 48,
+                [12] = 24,
             },
         };
 
@@ -109,7 +110,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         }
 
         var headerRow = rows.Count + 1;
-        rows.Add(CreateGridRow("#", "Issue", "Status", "Last updated", "Summary", "Comment"));
+        rows.Add(CreateGridRow("#", "Issue", "Status", "Assignee", "Last updated", "Summary", "Comment"));
         var dataStartRow = rows.Count + 1;
 
         for (var index = 0; index < issues.Count; index++)
@@ -120,6 +121,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                 index + 1,
                 issue.Key.Value,
                 issue.Status.Value,
+                issue.Assignee,
                 FormatDate(issue.UpdatedAt),
                 issue.Summary,
                 string.Empty));
@@ -127,7 +129,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
             layout.CellStyles[ToCellReference(2, currentRow)] = ExcelCellStyleKind.Hyperlink;
         }
 
-        layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 6, dataStartRow, rows.Count));
+        layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 7, dataStartRow, rows.Count));
         AddBlankRow(rows);
     }
 
@@ -142,7 +144,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         {
             AddRow(rows, layout, ExcelCellStyleKind.MetadataLabel, "A", "Tasks without merge into target branch");
             var headerRow = rows.Count + 1;
-            rows.Add(CreateGridRow("#", "Issue", "Status", "PRs", "Branches", "Last updated", "Summary", "Comment"));
+            rows.Add(CreateGridRow("#", "Issue", "Status", "Assignee", "PRs", "Branches", "Last updated", "Summary", "Comment"));
             var dataStartRow = rows.Count + 1;
 
             for (var index = 0; index < repository.WithoutTargetMerge.Count; index++)
@@ -153,6 +155,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                     index + 1,
                     item.Issue.Key.Value,
                     item.Issue.Status.Value,
+                    item.Issue.Assignee,
                     FormatPullRequests(item.PullRequests),
                     FormatBranchNames(item.BranchNames),
                     FormatDate(item.Issue.UpdatedAt),
@@ -163,12 +166,12 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
 
                 if (item.PullRequests.Count == 1 && item.PullRequests[0].Url is not null)
                 {
-                    layout.Hyperlinks[ToCellReference(4, currentRow)] = item.PullRequests[0].Url!.ToString();
-                    layout.CellStyles[ToCellReference(4, currentRow)] = ExcelCellStyleKind.Hyperlink;
+                    layout.Hyperlinks[ToCellReference(5, currentRow)] = item.PullRequests[0].Url!.ToString();
+                    layout.CellStyles[ToCellReference(5, currentRow)] = ExcelCellStyleKind.Hyperlink;
                 }
             }
 
-            layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 8, dataStartRow, rows.Count));
+            layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 9, dataStartRow, rows.Count));
             AddBlankRow(rows);
         }
 
@@ -180,6 +183,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                 "#",
                 "Issue",
                 "Status",
+                "Assignee",
                 "PRs",
                 "Artifact version",
                 "Alert",
@@ -198,6 +202,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                     index + 1,
                     item.Issue.Key.Value,
                     item.Issue.Status.Value,
+                    item.Issue.Assignee,
                     FormatMergedPullRequests(item.PullRequests),
                     item.Version.Value,
                     item.HasMultipleVersions ? MULTI_VERSION_ALERT_TEXT : "-",
@@ -211,17 +216,17 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
 
                 if (item.PullRequests.Count == 1 && item.PullRequests[0].PullRequestUrl is not null)
                 {
-                    layout.Hyperlinks[ToCellReference(4, currentRow)] = item.PullRequests[0].PullRequestUrl!.ToString();
-                    layout.CellStyles[ToCellReference(4, currentRow)] = ExcelCellStyleKind.Hyperlink;
+                    layout.Hyperlinks[ToCellReference(5, currentRow)] = item.PullRequests[0].PullRequestUrl!.ToString();
+                    layout.CellStyles[ToCellReference(5, currentRow)] = ExcelCellStyleKind.Hyperlink;
                 }
 
                 if (item.HasMultipleVersions)
                 {
-                    layout.CellStyles[ToCellReference(6, currentRow)] = ExcelCellStyleKind.Warning;
+                    layout.CellStyles[ToCellReference(7, currentRow)] = ExcelCellStyleKind.Warning;
                 }
             }
 
-            layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 11, dataStartRow, rows.Count));
+            layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 12, dataStartRow, rows.Count));
             AddBlankRow(rows);
         }
     }
@@ -351,6 +356,6 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         List<Dictionary<string, object?>> Rows,
         ExcelSheetLayout Layout);
 
-    private const int SHEET_COLUMN_COUNT = 11;
+    private const int SHEET_COLUMN_COUNT = 12;
     private const string MULTI_VERSION_ALERT_TEXT = "MULTI-VERSION";
 }

@@ -134,16 +134,17 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
                 columns.ConstantColumn(24);
                 columns.RelativeColumn(1f);
                 columns.RelativeColumn(1.1f);
+                columns.RelativeColumn(1.2f);
                 columns.RelativeColumn(1.3f);
                 columns.RelativeColumn(3.2f);
             });
 
-            ComposeHeader(table, "Issue", "Status", "Last updated", "Summary");
+            ComposeHeader(table, "Issue", "Status", "Assignee", "Last updated", "Summary");
 
             for (var index = 0; index < issues.Count; index++)
             {
                 var issue = issues[index];
-                ComposeIssueRow(table, index + 1, issue, issue.Status.Value, FormatDate(issue.UpdatedAt), issue.Summary);
+                ComposeIssueRow(table, index + 1, issue, issue.Status.Value, issue.Assignee, FormatDate(issue.UpdatedAt), issue.Summary);
             }
         });
     }
@@ -163,13 +164,14 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
                     columns.ConstantColumn(24);
                     columns.RelativeColumn(1f);
                     columns.RelativeColumn(1f);
+                    columns.RelativeColumn(1.1f);
                     columns.RelativeColumn(1.8f);
                     columns.RelativeColumn(1.5f);
                     columns.RelativeColumn(1.3f);
                     columns.RelativeColumn(3.2f);
                 });
 
-                ComposeHeader(table, "Issue", "Status", "PRs", "Branches", "Last updated", "Summary");
+                ComposeHeader(table, "Issue", "Status", "Assignee", "PRs", "Branches", "Last updated", "Summary");
 
                 for (var index = 0; index < repository.WithoutTargetMerge.Count; index++)
                 {
@@ -179,6 +181,7 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
                         index + 1,
                         item.Issue,
                         item.Issue.Status.Value,
+                        item.Issue.Assignee,
                         string.Join(", ", item.PullRequests.Select(static pr => $"#{pr.Id}:{pr.Status.Value}->{pr.DestinationBranch.Value}")),
                         FormatBranchNames(item.BranchNames),
                         FormatDate(item.Issue.UpdatedAt),
@@ -201,6 +204,7 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
                 columns.ConstantColumn(24);
                 columns.RelativeColumn(0.9f);
                 columns.RelativeColumn(0.9f);
+                columns.RelativeColumn(1f);
                 columns.RelativeColumn(1.1f);
                 columns.RelativeColumn(1.1f);
                 columns.RelativeColumn(1.1f);
@@ -210,7 +214,7 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
                 columns.RelativeColumn(2.5f);
             });
 
-            ComposeHeader(table, "Issue", "Status", "PRs", "Artifact version", "Alert", "Source", "Target", "Last updated", "Summary");
+            ComposeHeader(table, "Issue", "Status", "Assignee", "PRs", "Artifact version", "Alert", "Source", "Target", "Last updated", "Summary");
 
             for (var index = 0; index < repository.MergedIssueRows.Count; index++)
             {
@@ -221,6 +225,7 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
                     item.Issue,
                     item.HasMultipleVersions,
                     item.Issue.Status.Value,
+                    item.Issue.Assignee,
                     FormatMergedPullRequests(item.PullRequests),
                     item.Version.Value,
                     FormatAlertText(item),

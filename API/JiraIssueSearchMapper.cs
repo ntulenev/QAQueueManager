@@ -97,12 +97,14 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
             var values = issue.Fields?.Values ?? [];
             _ = values.TryGetValue("summary", out var summaryElement);
             _ = values.TryGetValue("status", out var statusElement);
+            _ = values.TryGetValue("assignee", out var assigneeElement);
             _ = values.TryGetValue("updated", out var updatedElement);
             _ = values.TryGetValue(developmentApiField, out var developmentElement);
 
             var summary = _objectMapper.ExtractDisplayValue(summaryElement) ?? "-";
             var status =
                 _objectMapper.ExtractDisplayValue(statusElement) ?? JiraIssueStatus.Unknown.Value;
+            var assignee = ExtractAssignee(assigneeElement);
             var development = _objectMapper.ExtractDisplayValue(developmentElement) ?? "{}";
             var teams = ExtractTeams(values, teamApiFields);
             var updatedAt = updatedElement.TryParseDate(_objectMapper.ExtractDisplayValue);
@@ -112,6 +114,7 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
                 new JiraIssueKey(issue.Key),
                 summary,
                 new JiraIssueStatus(status),
+                assignee,
                 development,
                 teams,
                 updatedAt));
@@ -190,5 +193,27 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
         return string.IsNullOrWhiteSpace(value) ? [] : [value.Trim()];
     }
 
+    private string ExtractAssignee(JsonElement assigneeElement)
+    {
+        if (assigneeElement.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
+        {
+            return UNASSIGNED_ASSIGNEE;
+        }
+
+        if (assigneeElement.ValueKind == JsonValueKind.Object &&
+            assigneeElement.TryGetProperty("displayName", out var displayNameElement))
+        {
+            var displayName = _objectMapper.ExtractDisplayValue(displayNameElement);
+            if (!string.IsNullOrWhiteSpace(displayName))
+            {
+                return displayName.Trim();
+            }
+        }
+
+        var assignee = _objectMapper.ExtractDisplayValue(assigneeElement);
+        return string.IsNullOrWhiteSpace(assignee) ? UNASSIGNED_ASSIGNEE : assignee.Trim();
+    }
+
     private readonly IJiraObjectMapper _objectMapper;
+    private const string UNASSIGNED_ASSIGNEE = "-";
 }
