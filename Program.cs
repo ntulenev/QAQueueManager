@@ -75,6 +75,7 @@ builder.Services.AddTransient<IBitbucketClient, BitbucketClient>();
 builder.Services.AddTransient<IArtifactVersionResolver, ArtifactVersionResolver>();
 builder.Services.AddTransient<IRepositoryResolutionBuilder, RepositoryResolutionBuilder>();
 builder.Services.AddTransient<IQaCodeIssueDetailsLoader, QaCodeIssueDetailsLoader>();
+builder.Services.AddTransient<IQaQueueReportBuilder, QaQueueReportBuilder>();
 builder.Services.AddTransient<IQaQueueReportService, QaQueueReportService>();
 builder.Services.AddTransient<IQaQueueWorkflowRunner, QaQueueWorkflowRunner>();
 builder.Services.AddTransient<IQaQueuePresentationService, SpectreQaQueuePresentationService>();

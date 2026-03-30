@@ -60,8 +60,7 @@ public sealed class QaQueueReportServiceTests
         var service = new QaQueueReportService(
             jiraIssueSearchClient.Object,
             codeIssueDetailsLoader.Object,
-            Options.Create(CreateJiraOptions()),
-            Options.Create(CreateReportOptions()));
+            CreateReportBuilder(CreateJiraOptions(), CreateReportOptions()));
 
         // Act
         var report = await service.BuildAsync(progress, cts.Token);
@@ -124,8 +123,7 @@ public sealed class QaQueueReportServiceTests
         var service = new QaQueueReportService(
             jiraIssueSearchClient.Object,
             codeIssueDetailsLoader.Object,
-            Options.Create(CreateJiraOptions(teamField: "Team")),
-            Options.Create(CreateReportOptions()));
+            CreateReportBuilder(CreateJiraOptions(teamField: "Team"), CreateReportOptions()));
 
         // Act
         var report = await service.BuildAsync(progress: null, cts.Token);
@@ -166,8 +164,7 @@ public sealed class QaQueueReportServiceTests
         var service = new QaQueueReportService(
             jiraIssueSearchClient.Object,
             codeIssueDetailsLoader.Object,
-            Options.Create(CreateJiraOptions(teamField: "Team")),
-            Options.Create(CreateReportOptions(hideNoCodeIssues: true)));
+            CreateReportBuilder(CreateJiraOptions(teamField: "Team"), CreateReportOptions(hideNoCodeIssues: true)));
 
         // Act
         var report = await service.BuildAsync(progress: null, cts.Token);
@@ -205,8 +202,7 @@ public sealed class QaQueueReportServiceTests
         var service = new QaQueueReportService(
             jiraIssueSearchClient.Object,
             codeIssueDetailsLoader.Object,
-            Options.Create(CreateJiraOptions()),
-            Options.Create(CreateReportOptions()));
+            CreateReportBuilder(CreateJiraOptions(), CreateReportOptions()));
 
         // Act
         var report = await service.BuildAsync(progress: null, cts.Token);
@@ -241,8 +237,7 @@ public sealed class QaQueueReportServiceTests
         var service = new QaQueueReportService(
             jiraIssueSearchClient.Object,
             codeIssueDetailsLoader.Object,
-            Options.Create(CreateJiraOptions(teamField: "Team")),
-            Options.Create(CreateReportOptions()));
+            CreateReportBuilder(CreateJiraOptions(teamField: "Team"), CreateReportOptions()));
 
         // Act
         var report = await service.BuildAsync(progress: null, cts.Token);
@@ -296,8 +291,7 @@ public sealed class QaQueueReportServiceTests
         var service = new QaQueueReportService(
             jiraIssueSearchClient.Object,
             codeIssueDetailsLoader.Object,
-            Options.Create(CreateJiraOptions()),
-            Options.Create(CreateReportOptions()));
+            CreateReportBuilder(CreateJiraOptions(), CreateReportOptions()));
 
         // Act
         var report = await service.BuildAsync(progress: null, cts.Token);
@@ -368,8 +362,7 @@ public sealed class QaQueueReportServiceTests
         var service = new QaQueueReportService(
             jiraIssueSearchClient.Object,
             codeIssueDetailsLoader.Object,
-            Options.Create(CreateJiraOptions()),
-            Options.Create(CreateReportOptions()));
+            CreateReportBuilder(CreateJiraOptions(), CreateReportOptions()));
 
         // Act
         var report = await service.BuildAsync(progress: null, cts.Token);
@@ -425,8 +418,7 @@ public sealed class QaQueueReportServiceTests
         var service = new QaQueueReportService(
             jiraIssueSearchClient.Object,
             codeIssueDetailsLoader.Object,
-            Options.Create(CreateJiraOptions()),
-            Options.Create(CreateReportOptions()));
+            CreateReportBuilder(CreateJiraOptions(), CreateReportOptions()));
 
         // Act
         var report = await service.BuildAsync(progress: null, cts.Token);
@@ -480,8 +472,7 @@ public sealed class QaQueueReportServiceTests
         var service = new QaQueueReportService(
             jiraIssueSearchClient.Object,
             codeIssueDetailsLoader.Object,
-            Options.Create(CreateJiraOptions()),
-            Options.Create(CreateReportOptions()));
+            CreateReportBuilder(CreateJiraOptions(), CreateReportOptions()));
 
         // Act
         var report = await service.BuildAsync(progress: null, cts.Token);
@@ -525,4 +516,13 @@ public sealed class QaQueueReportServiceTests
             OpenAfterGeneration = false
         };
     }
+
+    private static QaQueueReportBuilder CreateReportBuilder(JiraOptions jiraOptions, ReportOptions reportOptions)
+    {
+        return new QaQueueReportBuilder(
+            Options.Create(jiraOptions),
+            Options.Create(reportOptions));
+    }
 }
+
+
