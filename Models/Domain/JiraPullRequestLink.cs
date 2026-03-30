@@ -21,4 +21,16 @@ internal sealed record JiraPullRequestLink(
     BranchName SourceBranch,
     BranchName DestinationBranch,
     Uri? Url,
-    DateTimeOffset? LastUpdatedOn);
+    DateTimeOffset? LastUpdatedOn)
+{
+    /// <summary>
+    /// Gets a value indicating whether the pull request is merged into the supplied target branch.
+    /// </summary>
+    /// <param name="targetBranch">The target branch.</param>
+    /// <returns><see langword="true"/> when the pull request is merged into the target branch.</returns>
+    public bool IsMergedInto(BranchName targetBranch)
+    {
+        return Status.IsMerged &&
+            string.Equals(DestinationBranch.Value, targetBranch.Value, StringComparison.OrdinalIgnoreCase);
+    }
+}
