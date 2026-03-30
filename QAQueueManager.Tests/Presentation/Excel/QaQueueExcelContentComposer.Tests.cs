@@ -31,6 +31,9 @@ public sealed class QaQueueExcelContentComposerTests
         var sheetName = workbook.Sheets.Keys.Single();
         sheetName.Value.Should().Be("Core");
         var layout = workbook.Layouts[sheetName];
+        var rows = workbook.Sheets[sheetName].Should().BeAssignableTo<List<Dictionary<string, object?>>>().Subject;
+        rows.Any(static row => row.TryGetValue("C4", out var value) && Equals(value, "Assignee")).Should().BeTrue();
+        rows.Any(static row => row.TryGetValue("C4", out var value) && Equals(value, "QA Engineer")).Should().BeTrue();
         layout.Hyperlinks.Should().ContainValue("https://jira.example.test/browse/QA-1");
         layout.CellStyles.Should().ContainValue(ExcelCellStyleKind.Warning);
         layout.TableRanges.Should().NotBeEmpty();
