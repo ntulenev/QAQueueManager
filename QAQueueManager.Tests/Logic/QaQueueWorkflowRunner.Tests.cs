@@ -23,6 +23,10 @@ public sealed class QaQueueWorkflowRunnerTests
         var report = TestData.CreateReport();
         var pdfContent = new byte[] { 1, 2, 3 };
         using var excelContent = new MemoryStream([4, 5, 6]);
+        var excelMarkupMergeSummary = new ExcelMarkupMergeSummary(
+            "C:\\reports\\old",
+            "C:\\reports\\old\\qa-queue-report-1.xlsx",
+            ["Core|workspace/repo-a|QA-2|1.2.3"]);
         var workflowEvents = new List<string>();
         var progress = new Mock<IQaQueueWorkflowProgress>(MockBehavior.Strict);
         progress.SetupGet(p => p.BuildProgress)
@@ -62,7 +66,7 @@ public sealed class QaQueueWorkflowRunnerTests
         excelReportRenderer
             .Setup(renderer => renderer.Render(It.Is<QaQueueReport>(value => value == report)))
             .Callback(() => workflowEvents.Add("RenderExcel"))
-            .Returns(excelContent);
+            .Returns(new ExcelRenderResult(excelContent, excelMarkupMergeSummary));
 
         var excelReportFileStore = new Mock<IExcelReportFileStore>(MockBehavior.Strict);
         excelReportFileStore
@@ -91,6 +95,7 @@ public sealed class QaQueueWorkflowRunnerTests
         result.Report.Should().Be(report);
         result.PdfPath.Should().Be(new ReportFilePath("exports\\qa-report.pdf"));
         result.ExcelPath.Should().Be(new ReportFilePath("exports\\qa-report.xlsx"));
+        result.ExcelMarkupMergeSummary.Should().Be(excelMarkupMergeSummary);
         workflowEvents.Should().ContainInOrder(
             "Build",
             "StartPdf",

@@ -32,6 +32,11 @@ internal sealed class ReportOptions
     public string ExcelOutputPath { get; init; } = "qa-queue-report.xlsx";
 
     /// <summary>
+    /// Gets the optional path to a folder containing previous Excel reports used to restore manual markup.
+    /// </summary>
+    public string? OldReportsPath { get; init; }
+
+    /// <summary>
     /// Gets the maximum number of code-linked issues processed in parallel.
     /// </summary>
     [Range(1, 32)]

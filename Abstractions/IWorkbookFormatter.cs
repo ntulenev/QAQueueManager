@@ -1,3 +1,4 @@
+using QAQueueManager.Models.Domain;
 using QAQueueManager.Models.Rendering;
 
 namespace QAQueueManager.Abstractions;
@@ -12,5 +13,5 @@ internal interface IWorkbookFormatter
     /// </summary>
     /// <param name="workbookStream">The workbook stream to format.</param>
     /// <param name="layouts">Per-sheet layout metadata.</param>
-    void Format(Stream workbookStream, IReadOnlyDictionary<ExcelSheetName, ExcelSheetLayout> layouts);
+    ExcelMarkupMergeSummary Format(Stream workbookStream, IReadOnlyDictionary<ExcelSheetName, ExcelSheetLayout> layouts);
 }

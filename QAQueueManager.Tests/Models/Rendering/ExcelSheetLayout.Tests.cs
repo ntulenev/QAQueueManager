@@ -15,6 +15,7 @@ public sealed class ExcelSheetLayoutTests
 
         // Act
         layout.ColumnWidths[1] = 24;
+        layout.HiddenColumns.Add(13);
         layout.TableRanges.Add(new ExcelTableRange(2, 1, 3, 3, 4));
         layout.CellStyles["A1"] = ExcelCellStyleKind.Title;
         layout.Hyperlinks["B2"] = "https://jira.example.test/browse/QA-1";
@@ -22,6 +23,7 @@ public sealed class ExcelSheetLayoutTests
         // Assert
         layout.Name.Should().Be(new ExcelSheetName("Core Team"));
         layout.ColumnWidths.Should().ContainKey(1).WhoseValue.Should().Be(24);
+        layout.HiddenColumns.Should().Contain(13);
         layout.TableRanges.Should().ContainSingle();
         layout.CellStyles.Should().ContainKey("a1");
         layout.Hyperlinks.Should().ContainKey("b2");

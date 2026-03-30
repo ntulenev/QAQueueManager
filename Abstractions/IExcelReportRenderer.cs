@@ -11,6 +11,6 @@ internal interface IExcelReportRenderer
     /// Renders the supplied report into an in-memory Excel workbook.
     /// </summary>
     /// <param name="report">The report to render.</param>
-    /// <returns>A memory stream containing the generated workbook.</returns>
-    MemoryStream Render(QaQueueReport report);
+    /// <returns>The generated workbook stream and formatter metadata.</returns>
+    ExcelRenderResult Render(QaQueueReport report);
 }

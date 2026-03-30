@@ -25,6 +25,7 @@ public sealed class ReportOptionsTests
         // Assert
         options.PdfOutputPath.Should().Be("qa-queue-report.pdf");
         options.ExcelOutputPath.Should().Be("qa-queue-report.xlsx");
+        options.OldReportsPath.Should().BeNull();
         options.MaxParallelism.Should().Be(4);
         options.HideNoCodeIssues.Should().BeFalse();
         options.OpenAfterGeneration.Should().BeFalse();

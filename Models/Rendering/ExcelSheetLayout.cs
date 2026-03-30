@@ -19,6 +19,11 @@ internal sealed class ExcelSheetLayout(ExcelSheetName name)
     public Dictionary<int, double> ColumnWidths { get; } = [];
 
     /// <summary>
+    /// Gets the hidden worksheet columns keyed by one-based column index.
+    /// </summary>
+    public HashSet<int> HiddenColumns { get; } = [];
+
+    /// <summary>
     /// Gets the table ranges that should receive table formatting.
     /// </summary>
     public Collection<ExcelTableRange> TableRanges { get; } = [];

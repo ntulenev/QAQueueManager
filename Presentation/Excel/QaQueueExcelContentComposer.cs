@@ -74,8 +74,10 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                 [10] = 18,
                 [11] = 48,
                 [12] = 24,
+                [13] = 24,
             },
         };
+        _ = layout.HiddenColumns.Add(MARKUP_KEY_COLUMN_INDEX);
 
         AddRow(rows, layout, ExcelCellStyleKind.Title, "A", $"{report.Title} | Team: {team.Team.Value}");
         AddLabeledValueRow(rows, layout, "Generated", report.GeneratedAt.ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture));
@@ -85,12 +87,12 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
 
         if (!report.HideNoCodeIssues)
         {
-            AppendNoCodeSection(rows, layout, team.NoCodeIssues);
+            AppendNoCodeSection(rows, layout, layout.Name, team.NoCodeIssues);
         }
 
         foreach (var repository in team.Repositories)
         {
-            AppendRepositorySection(rows, layout, repository);
+            AppendRepositorySection(rows, layout, layout.Name, repository);
         }
 
         return new BuiltSheet(layout.Name, rows, layout);
@@ -99,6 +101,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
     private void AppendNoCodeSection(
         List<Dictionary<string, object?>> rows,
         ExcelSheetLayout layout,
+        ExcelSheetName sheetName,
         IReadOnlyList<QaIssue> issues)
     {
         AddRow(rows, layout, ExcelCellStyleKind.SectionTitle, "A", "QA tasks without code");
@@ -110,7 +113,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         }
 
         var headerRow = rows.Count + 1;
-        rows.Add(CreateGridRow("#", "Issue", "Status", "Assignee", "Last updated", "Summary", "Comment"));
+        rows.Add(CreateGridRow("#", "Issue", "Status", "Assignee", "Last updated", "Summary", "Comment", MARKUP_KEY_COLUMN_NAME));
         var dataStartRow = rows.Count + 1;
 
         for (var index = 0; index < issues.Count; index++)
@@ -124,18 +127,20 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                 issue.Assignee,
                 FormatDate(issue.UpdatedAt),
                 issue.Summary,
-                string.Empty));
+                string.Empty,
+                BuildMarkupKey(sheetName, NO_CODE_SERVICE_KEY, issue.Key)));
             layout.Hyperlinks[ToCellReference(2, currentRow)] = BuildIssueUrl(issue.Key);
             layout.CellStyles[ToCellReference(2, currentRow)] = ExcelCellStyleKind.Hyperlink;
         }
 
-        layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 7, dataStartRow, rows.Count));
+        layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 8, dataStartRow, rows.Count));
         AddBlankRow(rows);
     }
 
     private void AppendRepositorySection(
         List<Dictionary<string, object?>> rows,
         ExcelSheetLayout layout,
+        ExcelSheetName sheetName,
         QaRepositorySection repository)
     {
         AddRow(rows, layout, ExcelCellStyleKind.SectionTitle, "A", repository.RepositoryFullName.Value);
@@ -144,7 +149,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         {
             AddRow(rows, layout, ExcelCellStyleKind.MetadataLabel, "A", "Tasks without merge into target branch");
             var headerRow = rows.Count + 1;
-            rows.Add(CreateGridRow("#", "Issue", "Status", "Assignee", "PRs", "Branches", "Last updated", "Summary", "Comment"));
+            rows.Add(CreateGridRow("#", "Issue", "Status", "Assignee", "PRs", "Branches", "Last updated", "Summary", "Comment", MARKUP_KEY_COLUMN_NAME));
             var dataStartRow = rows.Count + 1;
 
             for (var index = 0; index < repository.WithoutTargetMerge.Count; index++)
@@ -160,7 +165,8 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                     FormatBranchNames(item.BranchNames),
                     FormatDate(item.Issue.UpdatedAt),
                     item.Issue.Summary,
-                    string.Empty));
+                    string.Empty,
+                    BuildMarkupKey(sheetName, repository.RepositoryFullName, item.Issue.Key)));
                 layout.Hyperlinks[ToCellReference(2, currentRow)] = BuildIssueUrl(item.Issue.Key);
                 layout.CellStyles[ToCellReference(2, currentRow)] = ExcelCellStyleKind.Hyperlink;
 
@@ -171,7 +177,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                 }
             }
 
-            layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 9, dataStartRow, rows.Count));
+            layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 10, dataStartRow, rows.Count));
             AddBlankRow(rows);
         }
 
@@ -191,7 +197,8 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                 "Target",
                 "Last updated",
                 "Summary",
-                "Comment"));
+                "Comment",
+                MARKUP_KEY_COLUMN_NAME));
             var dataStartRow = rows.Count + 1;
 
             for (var index = 0; index < repository.MergedIssueRows.Count; index++)
@@ -210,7 +217,8 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                     FormatBranchNames(item.PullRequests.Select(static pr => pr.DestinationBranch)),
                     FormatDate(item.Issue.UpdatedAt),
                     item.Issue.Summary,
-                    string.Empty));
+                    string.Empty,
+                    BuildMergedMarkupKey(sheetName, repository.RepositoryFullName, item.Issue.Key, item.Version)));
                 layout.Hyperlinks[ToCellReference(2, currentRow)] = BuildIssueUrl(item.Issue.Key);
                 layout.CellStyles[ToCellReference(2, currentRow)] = ExcelCellStyleKind.Hyperlink;
 
@@ -226,7 +234,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                 }
             }
 
-            layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 12, dataStartRow, rows.Count));
+            layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 13, dataStartRow, rows.Count));
             AddBlankRow(rows);
         }
     }
@@ -343,6 +351,25 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         return values.Count == 0 ? "-" : string.Join(", ", values);
     }
 
+    private static string BuildMarkupKey(
+        ExcelSheetName sheetName,
+        RepositoryFullName repositoryFullName,
+        JiraIssueKey issueKey) =>
+        BuildMarkupKey(sheetName, repositoryFullName.Value, issueKey);
+
+    private static string BuildMarkupKey(
+        ExcelSheetName sheetName,
+        string serviceOrRepository,
+        JiraIssueKey issueKey) =>
+        string.Join(MARKUP_KEY_SEPARATOR, sheetName.Value, serviceOrRepository, issueKey.Value);
+
+    private static string BuildMergedMarkupKey(
+        ExcelSheetName sheetName,
+        RepositoryFullName repositoryFullName,
+        JiraIssueKey issueKey,
+        ArtifactVersion version) =>
+        string.Join(MARKUP_KEY_SEPARATOR, sheetName.Value, repositoryFullName.Value, issueKey.Value, version.Value);
+
     private readonly Uri _jiraBrowseBaseUrl;
 
     /// <summary>
@@ -356,6 +383,10 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         List<Dictionary<string, object?>> Rows,
         ExcelSheetLayout Layout);
 
-    private const int SHEET_COLUMN_COUNT = 12;
+    private const int SHEET_COLUMN_COUNT = 13;
     private const string MULTI_VERSION_ALERT_TEXT = "MULTI-VERSION";
+    private const int MARKUP_KEY_COLUMN_INDEX = 13;
+    private const string MARKUP_KEY_COLUMN_NAME = "MarkupKey";
+    private const string NO_CODE_SERVICE_KEY = "__no-code__";
+    private const char MARKUP_KEY_SEPARATOR = '|';
 }

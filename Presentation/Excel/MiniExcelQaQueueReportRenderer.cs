@@ -30,8 +30,8 @@ internal sealed class MiniExcelQaQueueReportRenderer : IExcelReportRenderer
     /// Renders the supplied report into an in-memory Excel workbook.
     /// </summary>
     /// <param name="report">The report to render.</param>
-    /// <returns>A stream containing the generated workbook.</returns>
-    public MemoryStream Render(QaQueueReport report)
+    /// <returns>The generated workbook stream and formatter metadata.</returns>
+    public ExcelRenderResult Render(QaQueueReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
 
@@ -42,9 +42,9 @@ internal sealed class MiniExcelQaQueueReportRenderer : IExcelReportRenderer
             workbook.Sheets.ToDictionary(static pair => pair.Key.Value, static pair => pair.Value, StringComparer.Ordinal),
             printHeader: false);
         outputStream.Position = 0;
-        _workbookFormatter.Format(outputStream, workbook.Layouts);
+        var markupMergeSummary = _workbookFormatter.Format(outputStream, workbook.Layouts);
         outputStream.Position = 0;
-        return outputStream;
+        return new ExcelRenderResult(outputStream, markupMergeSummary);
     }
 
     private readonly IExcelWorkbookContentComposer _workbookContentComposer;

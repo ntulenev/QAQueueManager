@@ -39,15 +39,18 @@ public sealed class MiniExcelQaQueueReportRendererTests
                 It.Is<Stream>(stream => stream.CanSeek && stream.Length > 0),
                 It.Is<IReadOnlyDictionary<ExcelSheetName, ExcelSheetLayout>>(layouts =>
                     layouts.Count == 1 && layouts.ContainsKey(new ExcelSheetName("Sheet1")))))
-            .Callback(() => formatterCalls++);
+            .Callback(() => formatterCalls++)
+            .Returns(new ExcelMarkupMergeSummary(null, null, []));
 
         var renderer = new MiniExcelQaQueueReportRenderer(composer.Object, formatter.Object);
 
         // Act
-        using var stream = renderer.Render(report);
+        var renderResult = renderer.Render(report);
+        using var stream = renderResult.WorkbookStream;
 
         // Assert
         stream.Length.Should().BeGreaterThan(0);
+        renderResult.MarkupMergeSummary.Should().BeEquivalentTo(new ExcelMarkupMergeSummary(null, null, []));
         formatterCalls.Should().Be(1);
     }
 }

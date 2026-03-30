@@ -63,14 +63,15 @@ internal sealed class QaQueueWorkflowRunner : IQaQueueWorkflowRunner
         progress.ReportPdfSaved(pdfPath);
 
         progress.StartExcelExport();
-        using var workbookStream = _excelReportRenderer.Render(report);
+        var excelRenderResult = _excelReportRenderer.Render(report);
+        using var workbookStream = excelRenderResult.WorkbookStream;
         progress.ReportExcelRendered();
         var excelPath = _excelReportFileStore.Save(
             workbookStream,
             new ReportFilePath(_reportOptions.ExcelOutputPath));
         progress.ReportExcelSaved(excelPath);
 
-        return new QaQueueWorkflowResult(report, pdfPath, excelPath);
+        return new QaQueueWorkflowResult(report, pdfPath, excelPath, excelRenderResult.MarkupMergeSummary);
     }
 
     private readonly IQaQueueReportService _reportService;

@@ -6,7 +6,9 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="Report">The generated QA queue report.</param>
 /// <param name="PdfPath">The exported PDF path.</param>
 /// <param name="ExcelPath">The exported Excel path.</param>
+/// <param name="ExcelMarkupMergeSummary">The summary of restored manual Excel markup.</param>
 internal sealed record QaQueueWorkflowResult(
     QaQueueReport Report,
     ReportFilePath PdfPath,
-    ReportFilePath ExcelPath);
+    ReportFilePath ExcelPath,
+    ExcelMarkupMergeSummary ExcelMarkupMergeSummary);
