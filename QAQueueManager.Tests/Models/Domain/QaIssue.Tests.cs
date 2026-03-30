@@ -17,6 +17,7 @@ public sealed class QaIssueTests
             new JiraIssueKey("QA-1"),
             "Summary",
             new JiraIssueStatus("Open"),
+            "QA Engineer",
             developmentSummary,
             [new TeamName("Core"), new TeamName("Platform")],
             null);
@@ -39,6 +40,7 @@ public sealed class QaIssueTests
             new JiraIssueKey("QA-2"),
             "Summary",
             new JiraIssueStatus("Open"),
+            "QA Engineer",
             developmentSummary,
             [],
             null);

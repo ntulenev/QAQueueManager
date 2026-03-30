@@ -9,6 +9,7 @@ internal static class TestData
         string key = "QA-1",
         string summary = "Summary",
         string status = "Open",
+        string assignee = "QA Engineer",
         string developmentSummary = /*lang=json,strict*/ """{}""",
         IReadOnlyList<TeamName>? teams = null,
         DateTimeOffset? updatedAt = null)
@@ -18,6 +19,7 @@ internal static class TestData
             new JiraIssueKey(key),
             summary,
             new JiraIssueStatus(status),
+            assignee,
             developmentSummary,
             teams ?? [],
             updatedAt);
