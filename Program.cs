@@ -72,6 +72,8 @@ builder.Services.AddTransient<IJiraObjectMapper, JiraObjectMapper>();
 builder.Services.AddTransient<IJiraIssueSearchMapper, JiraIssueSearchMapper>();
 builder.Services.AddTransient<IJiraDevelopmentClient, JiraDevelopmentClient>();
 builder.Services.AddTransient<IBitbucketClient, BitbucketClient>();
+builder.Services.AddTransient<IArtifactVersionResolver, ArtifactVersionResolver>();
+builder.Services.AddTransient<IRepositoryResolutionBuilder, RepositoryResolutionBuilder>();
 builder.Services.AddTransient<IQaCodeIssueDetailsLoader, QaCodeIssueDetailsLoader>();
 builder.Services.AddTransient<IQaQueueReportService, QaQueueReportService>();
 builder.Services.AddTransient<IQaQueueWorkflowRunner, QaQueueWorkflowRunner>();

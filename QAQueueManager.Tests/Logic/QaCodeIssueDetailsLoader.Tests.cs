@@ -41,10 +41,7 @@ public sealed class QaCodeIssueDetailsLoaderTests
             .ReturnsAsync([]);
 
         var bitbucketClient = new Mock<IBitbucketClient>(MockBehavior.Strict);
-        var loader = new QaCodeIssueDetailsLoader(
-            jiraDevelopmentClient.Object,
-            bitbucketClient.Object,
-            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+        var loader = CreateLoader(jiraDevelopmentClient.Object, bitbucketClient.Object);
 
         // Act
         var result = await loader.LoadAsync([issue], progress, cts.Token);
@@ -75,10 +72,7 @@ public sealed class QaCodeIssueDetailsLoaderTests
 
         var jiraDevelopmentClient = new Mock<IJiraDevelopmentClient>(MockBehavior.Strict);
         var bitbucketClient = new Mock<IBitbucketClient>(MockBehavior.Strict);
-        var loader = new QaCodeIssueDetailsLoader(
-            jiraDevelopmentClient.Object,
-            bitbucketClient.Object,
-            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+        var loader = CreateLoader(jiraDevelopmentClient.Object, bitbucketClient.Object);
 
         // Act
         var result = await loader.LoadAsync([issue], progress: null, cts.Token);
@@ -138,10 +132,7 @@ public sealed class QaCodeIssueDetailsLoaderTests
             .Callback(() => tagCalls++)
             .ReturnsAsync([new BitbucketTag(new ArtifactVersion("2.0.0"), new CommitHash("abcdef1"), null)]);
 
-        var loader = new QaCodeIssueDetailsLoader(
-            jiraDevelopmentClient.Object,
-            bitbucketClient.Object,
-            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+        var loader = CreateLoader(jiraDevelopmentClient.Object, bitbucketClient.Object);
 
         // Act
         var result = await loader.LoadAsync([issue], progress: null, cts.Token);
@@ -178,10 +169,7 @@ public sealed class QaCodeIssueDetailsLoaderTests
             ]);
 
         var bitbucketClient = new Mock<IBitbucketClient>(MockBehavior.Strict);
-        var loader = new QaCodeIssueDetailsLoader(
-            jiraDevelopmentClient.Object,
-            bitbucketClient.Object,
-            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+        var loader = CreateLoader(jiraDevelopmentClient.Object, bitbucketClient.Object);
 
         // Act
         var result = await loader.LoadAsync([issue], progress: null, cts.Token);
@@ -224,10 +212,7 @@ public sealed class QaCodeIssueDetailsLoaderTests
             .ReturnsAsync([]);
 
         var bitbucketClient = new Mock<IBitbucketClient>(MockBehavior.Strict);
-        var loader = new QaCodeIssueDetailsLoader(
-            jiraDevelopmentClient.Object,
-            bitbucketClient.Object,
-            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+        var loader = CreateLoader(jiraDevelopmentClient.Object, bitbucketClient.Object);
 
         // Act
         var result = await loader.LoadAsync([issue], progress: null, cts.Token);
@@ -263,10 +248,7 @@ public sealed class QaCodeIssueDetailsLoaderTests
             ]);
 
         var bitbucketClient = new Mock<IBitbucketClient>(MockBehavior.Strict);
-        var loader = new QaCodeIssueDetailsLoader(
-            jiraDevelopmentClient.Object,
-            bitbucketClient.Object,
-            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+        var loader = CreateLoader(jiraDevelopmentClient.Object, bitbucketClient.Object);
 
         // Act
         var result = await loader.LoadAsync([issue], progress: null, cts.Token);
@@ -314,10 +296,7 @@ public sealed class QaCodeIssueDetailsLoaderTests
                 sourceBranch: "feature/qa-105",
                 destinationBranch: "main"));
 
-        var loader = new QaCodeIssueDetailsLoader(
-            jiraDevelopmentClient.Object,
-            bitbucketClient.Object,
-            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+        var loader = CreateLoader(jiraDevelopmentClient.Object, bitbucketClient.Object);
 
         // Act
         var result = await loader.LoadAsync([issue], progress: null, cts.Token);
@@ -357,10 +336,7 @@ public sealed class QaCodeIssueDetailsLoaderTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestData.CreateBitbucketPullRequest(id: 79, mergeCommitHash: null, updatedOn: new DateTimeOffset(2026, 3, 20, 12, 5, 0, TimeSpan.Zero)));
 
-        var loader = new QaCodeIssueDetailsLoader(
-            jiraDevelopmentClient.Object,
-            bitbucketClient.Object,
-            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+        var loader = CreateLoader(jiraDevelopmentClient.Object, bitbucketClient.Object);
 
         // Act
         var result = await loader.LoadAsync([issue], progress: null, cts.Token);
@@ -419,10 +395,7 @@ public sealed class QaCodeIssueDetailsLoaderTests
             .Setup(client => client.GetTagsByCommitHashAsync(new RepositorySlug("repo-a"), new CommitHash("abcdef82"), It.IsAny<CancellationToken>()))
             .ReturnsAsync([new BitbucketTag(new ArtifactVersion("1.0.5"), new CommitHash("abcdef82"), null)]);
 
-        var loader = new QaCodeIssueDetailsLoader(
-            jiraDevelopmentClient.Object,
-            bitbucketClient.Object,
-            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+        var loader = CreateLoader(jiraDevelopmentClient.Object, bitbucketClient.Object);
 
         // Act
         var result = await loader.LoadAsync([issue], progress: null, cts.Token);
@@ -493,10 +466,7 @@ public sealed class QaCodeIssueDetailsLoaderTests
             .Setup(client => client.GetTagsByCommitHashAsync(new RepositorySlug("repo-b"), new CommitHash("abcdef92"), It.IsAny<CancellationToken>()))
             .ReturnsAsync([new BitbucketTag(new ArtifactVersion("7.4.2"), new CommitHash("abcdef92"), null)]);
 
-        var loader = new QaCodeIssueDetailsLoader(
-            jiraDevelopmentClient.Object,
-            bitbucketClient.Object,
-            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+        var loader = CreateLoader(jiraDevelopmentClient.Object, bitbucketClient.Object);
 
         // Act
         var result = await loader.LoadAsync([issue], progress: null, cts.Token);
@@ -513,4 +483,21 @@ public sealed class QaCodeIssueDetailsLoaderTests
             .Should()
             .BeEquivalentTo(["3.1.0", "7.4.2"]);
     }
+
+    private static QaCodeIssueDetailsLoader CreateLoader(
+        IJiraDevelopmentClient jiraDevelopmentClient,
+        IBitbucketClient bitbucketClient)
+    {
+        var reportOptions = Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 });
+        var artifactVersionResolver = new ArtifactVersionResolver(bitbucketClient);
+        var repositoryResolutionBuilder = new RepositoryResolutionBuilder(
+            jiraDevelopmentClient,
+            bitbucketClient,
+            artifactVersionResolver,
+            reportOptions);
+
+        return new QaCodeIssueDetailsLoader(repositoryResolutionBuilder, reportOptions);
+    }
 }
+
+
