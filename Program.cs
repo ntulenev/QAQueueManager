@@ -68,6 +68,8 @@ builder.Services.AddHttpClient<BitbucketTransport>((sp, http) =>
 .ConfigurePrimaryHttpMessageHandler(static () => CreateHttpMessageHandler());
 
 builder.Services.AddTransient<IJiraIssueSearchClient, JiraIssueSearchClient>();
+builder.Services.AddTransient<IJiraFieldResolver, JiraFieldResolver>();
+builder.Services.AddTransient<IJiraSearchExecutor, JiraSearchExecutor>();
 builder.Services.AddTransient<IJiraObjectMapper, JiraObjectMapper>();
 builder.Services.AddTransient<IJiraIssueSearchMapper, JiraIssueSearchMapper>();
 builder.Services.AddTransient<IJiraDevelopmentClient, JiraDevelopmentClient>();

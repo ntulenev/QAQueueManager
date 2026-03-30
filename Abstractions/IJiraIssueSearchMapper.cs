@@ -9,20 +9,6 @@ namespace QAQueueManager.Abstractions;
 internal interface IJiraIssueSearchMapper
 {
     /// <summary>
-    /// Normalizes a configured Jira field alias for lookup.
-    /// </summary>
-    /// <param name="alias">The configured field alias.</param>
-    /// <returns>The normalized lookup key.</returns>
-    string SimplifyAlias(string alias);
-
-    /// <summary>
-    /// Builds a field alias lookup from Jira field definitions.
-    /// </summary>
-    /// <param name="fields">The Jira field definitions.</param>
-    /// <returns>The alias lookup keyed by normalized field names.</returns>
-    Dictionary<string, IReadOnlyList<string>> BuildFieldLookup(IEnumerable<JiraFieldDefinitionResponse> fields);
-
-    /// <summary>
     /// Maps Jira issue DTOs to domain issues.
     /// </summary>
     /// <param name="issues">The Jira issue DTOs.</param>

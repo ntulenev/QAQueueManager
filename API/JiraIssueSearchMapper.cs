@@ -4,11 +4,10 @@ using System.Text.Json;
 using QAQueueManager.Abstractions;
 using QAQueueManager.Models.Domain;
 using QAQueueManager.Transport;
-
 namespace QAQueueManager.API;
 
 /// <summary>
-/// Maps Jira search DTOs and field metadata into domain models.
+/// Maps Jira search DTOs into domain models.
 /// </summary>
 internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
 {
@@ -19,54 +18,6 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
     public JiraIssueSearchMapper(IJiraObjectMapper objectMapper)
     {
         _objectMapper = objectMapper ?? throw new ArgumentNullException(nameof(objectMapper));
-    }
-
-    /// <inheritdoc />
-    public string SimplifyAlias(string alias)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(alias);
-
-        var value = alias.Trim();
-        if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
-        {
-            value = value[1..^1].Trim();
-        }
-
-        return value;
-    }
-
-    /// <inheritdoc />
-    public Dictionary<string, IReadOnlyList<string>> BuildFieldLookup(
-        IEnumerable<JiraFieldDefinitionResponse> fields)
-    {
-        ArgumentNullException.ThrowIfNull(fields);
-
-        var result = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var field in fields)
-        {
-            var apiField = !string.IsNullOrWhiteSpace(field.Key)
-                ? field.Key.Trim()
-                : field.Id?.Trim();
-            if (string.IsNullOrWhiteSpace(apiField))
-            {
-                continue;
-            }
-
-            AddAlias(result, field.Id, apiField);
-            AddAlias(result, field.Key, apiField);
-            AddAlias(result, field.Name, apiField);
-
-            foreach (var clauseName in field.ClauseNames)
-            {
-                AddAlias(result, clauseName, apiField);
-            }
-        }
-
-        return result.ToDictionary(
-            static pair => pair.Key,
-            static pair => (IReadOnlyList<string>)pair.Value,
-            StringComparer.OrdinalIgnoreCase);
     }
 
     /// <inheritdoc />
@@ -121,26 +72,6 @@ internal sealed class JiraIssueSearchMapper : IJiraIssueSearchMapper
         }
 
         return result;
-    }
-
-    private void AddAlias(Dictionary<string, List<string>> lookup, string? alias, string apiField)
-    {
-        if (string.IsNullOrWhiteSpace(alias))
-        {
-            return;
-        }
-
-        var normalizedAlias = SimplifyAlias(alias);
-        if (!lookup.TryGetValue(normalizedAlias, out var fields))
-        {
-            fields = [];
-            lookup[normalizedAlias] = fields;
-        }
-
-        if (!fields.Contains(apiField, StringComparer.OrdinalIgnoreCase))
-        {
-            fields.Add(apiField);
-        }
     }
 
     private List<TeamName> ExtractTeams(
