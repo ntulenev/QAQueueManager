@@ -149,7 +149,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         {
             AddRow(rows, layout, ExcelCellStyleKind.MetadataLabel, "A", "Tasks without merge into target branch");
             var headerRow = rows.Count + 1;
-            rows.Add(CreateGridRow("#", "Issue", "Status", "Assignee", "PRs", "Branches", "Last updated", "Summary", "Comment", MARKUP_KEY_COLUMN_NAME));
+            rows.Add(CreateGridRow("#", "Issue", "Status", "Assignee", "PRs", "Branches", "Alert", "Last updated", "Summary", "Comment", MARKUP_KEY_COLUMN_NAME));
             var dataStartRow = rows.Count + 1;
 
             for (var index = 0; index < repository.WithoutTargetMerge.Count; index++)
@@ -163,6 +163,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                     item.Issue.Assignee,
                     FormatPullRequests(item.PullRequests),
                     FormatBranchNames(item.BranchNames),
+                    item.HasDuplicateIssue ? MULTI_ENTRY_ALERT_TEXT : "-",
                     FormatDate(item.Issue.UpdatedAt),
                     item.Issue.Summary,
                     string.Empty,
@@ -175,9 +176,14 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                     layout.Hyperlinks[ToCellReference(5, currentRow)] = item.PullRequests[0].Url!.ToString();
                     layout.CellStyles[ToCellReference(5, currentRow)] = ExcelCellStyleKind.Hyperlink;
                 }
+
+                if (item.HasDuplicateIssue)
+                {
+                    layout.CellStyles[ToCellReference(7, currentRow)] = ExcelCellStyleKind.Warning;
+                }
             }
 
-            layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 10, dataStartRow, rows.Count));
+            layout.TableRanges.Add(new ExcelTableRange(headerRow, 1, 11, dataStartRow, rows.Count));
             AddBlankRow(rows);
         }
 
@@ -212,7 +218,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                     item.Issue.Assignee,
                     FormatMergedPullRequests(item.PullRequests),
                     item.Version.Value,
-                    item.HasMultipleVersions ? MULTI_VERSION_ALERT_TEXT : "-",
+                    item.HasDuplicateIssue ? MULTI_ENTRY_ALERT_TEXT : "-",
                     FormatBranchNames(item.PullRequests.Select(static pr => pr.SourceBranch)),
                     FormatBranchNames(item.PullRequests.Select(static pr => pr.DestinationBranch)),
                     FormatDate(item.Issue.UpdatedAt),
@@ -228,7 +234,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
                     layout.CellStyles[ToCellReference(5, currentRow)] = ExcelCellStyleKind.Hyperlink;
                 }
 
-                if (item.HasMultipleVersions)
+                if (item.HasDuplicateIssue)
                 {
                     layout.CellStyles[ToCellReference(7, currentRow)] = ExcelCellStyleKind.Warning;
                 }
@@ -384,7 +390,7 @@ internal sealed class QaQueueExcelContentComposer : IExcelWorkbookContentCompose
         ExcelSheetLayout Layout);
 
     private const int SHEET_COLUMN_COUNT = 13;
-    private const string MULTI_VERSION_ALERT_TEXT = "MULTI-VERSION";
+    private const string MULTI_ENTRY_ALERT_TEXT = "MULTI-ENTRY";
     private const int MARKUP_KEY_COLUMN_INDEX = 13;
     private const string MARKUP_KEY_COLUMN_NAME = "MarkupKey";
     private const string NO_CODE_SERVICE_KEY = "__no-code__";

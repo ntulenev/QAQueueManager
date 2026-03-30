@@ -202,6 +202,7 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
             _ = table.AddColumn("Status");
             _ = table.AddColumn("PRs");
             _ = table.AddColumn("Branches");
+            _ = table.AddColumn("Alert");
             _ = table.AddColumn("Last updated");
             _ = table.AddColumn("Summary");
 
@@ -214,6 +215,7 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
                     Escape(item.Issue.Status.Value),
                     Escape(FormatPullRequests(item.PullRequests)),
                     Escape(FormatBranchNames(item.BranchNames)),
+                    FormatAlertCell(item.HasDuplicateIssue),
                     Escape(FormatDate(item.Issue.UpdatedAt)),
                     Escape(item.Issue.Summary));
             }
@@ -249,7 +251,7 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
                 Escape(item.Issue.Status.Value),
                 Escape(FormatMergedPullRequests(item.PullRequests)),
                 Escape(item.Version.Value),
-                FormatAlertCell(item),
+                FormatAlertCell(item.HasDuplicateIssue),
                 Escape(FormatBranchNames(item.PullRequests.Select(static pr => pr.SourceBranch))),
                 Escape(FormatBranchNames(item.PullRequests.Select(static pr => pr.DestinationBranch))),
                 Escape(FormatDate(item.Issue.UpdatedAt)),
@@ -325,13 +327,13 @@ internal sealed class SpectreQaQueuePresentationService : IQaQueuePresentationSe
     }
 
     private static string FormatIssueCell(QaMergedIssueVersionRow item) =>
-        item.HasMultipleVersions
+        item.HasDuplicateIssue
             ? $"[bold yellow]{Escape(item.Issue.Key.Value)}[/]"
             : Escape(item.Issue.Key.Value);
 
-    private static string FormatAlertCell(QaMergedIssueVersionRow item) =>
-        item.HasMultipleVersions
-            ? "[bold yellow]MULTI-VERSION[/]"
+    private static string FormatAlertCell(bool hasDuplicateIssue) =>
+        hasDuplicateIssue
+            ? "[bold yellow]MULTI-ENTRY[/]"
             : Escape("-");
 
     private static string Escape(string? value) => Markup.Escape(string.IsNullOrWhiteSpace(value) ? "-" : value);

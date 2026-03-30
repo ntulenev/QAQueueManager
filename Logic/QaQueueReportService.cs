@@ -76,6 +76,13 @@ internal sealed class QaQueueReportService : IQaQueueReportService
             ? BuildTeamSections(noCodeIssues, processedIssues)
             : [];
 
+        repositorySections = IsTeamGroupingEnabled
+            ? []
+            : ApplyDuplicateIssueAlerts(repositorySections);
+        teamSections = IsTeamGroupingEnabled
+            ? ApplyDuplicateIssueAlerts(teamSections)
+            : [];
+
         return new QaQueueReport(
             DateTimeOffset.Now,
             _reportOptions.Title,
@@ -180,6 +187,58 @@ internal sealed class QaQueueReportService : IQaQueueReportService
         return [.. repositories.Values
             .Select(static accumulator => accumulator.Build())
             .OrderBy(static section => section.RepositoryFullName.Value, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    private static List<QaTeamSection> ApplyDuplicateIssueAlerts(IReadOnlyList<QaTeamSection> teamSections)
+    {
+        var occurrenceCounts = CountIssueOccurrences(teamSections.SelectMany(static team => team.Repositories));
+        return [.. teamSections.Select(team => new QaTeamSection(
+            team.Team,
+            team.NoCodeIssues,
+            ApplyDuplicateIssueAlerts(team.Repositories, occurrenceCounts)))];
+    }
+
+    private static List<QaRepositorySection> ApplyDuplicateIssueAlerts(IReadOnlyList<QaRepositorySection> repositorySections)
+    {
+        var occurrenceCounts = CountIssueOccurrences(repositorySections);
+        return ApplyDuplicateIssueAlerts(repositorySections, occurrenceCounts);
+    }
+
+    private static List<QaRepositorySection> ApplyDuplicateIssueAlerts(
+        IReadOnlyList<QaRepositorySection> repositorySections,
+        IReadOnlyDictionary<JiraIssueId, int> occurrenceCounts)
+    {
+        return [.. repositorySections.Select(repository => new QaRepositorySection(
+            repository.RepositoryFullName,
+            repository.RepositorySlug,
+            [.. repository.WithoutTargetMerge.Select(item => item with
+            {
+                HasDuplicateIssue = occurrenceCounts.GetValueOrDefault(item.Issue.Id) > 1
+            })],
+            [.. repository.MergedIssueRows.Select(item => item with
+            {
+                HasDuplicateIssue = occurrenceCounts.GetValueOrDefault(item.Issue.Id) > 1
+            })]))];
+    }
+
+    private static Dictionary<JiraIssueId, int> CountIssueOccurrences(IEnumerable<QaRepositorySection> repositorySections)
+    {
+        var occurrenceCounts = new Dictionary<JiraIssueId, int>();
+
+        foreach (var repository in repositorySections)
+        {
+            foreach (var item in repository.WithoutTargetMerge)
+            {
+                occurrenceCounts[item.Issue.Id] = occurrenceCounts.GetValueOrDefault(item.Issue.Id) + 1;
+            }
+
+            foreach (var item in repository.MergedIssueRows)
+            {
+                occurrenceCounts[item.Issue.Id] = occurrenceCounts.GetValueOrDefault(item.Issue.Id) + 1;
+            }
+        }
+
+        return occurrenceCounts;
     }
 
     private readonly IJiraIssueSearchClient _jiraIssueSearchClient;

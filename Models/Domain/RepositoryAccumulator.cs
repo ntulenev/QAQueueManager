@@ -82,7 +82,8 @@ internal sealed class RepositoryAccumulator
             RepositoryFullName,
             RepositorySlug,
             pullRequests,
-            branchNames));
+            branchNames,
+            HasDuplicateIssue: false));
     }
 
     /// <summary>
@@ -142,7 +143,6 @@ internal sealed class RepositoryAccumulator
             .Select(static group => group.First())
             .OrderBy(static version => version, RepositoryVersionGroupComparer.Instance)
             .ToList();
-        var hasMultipleVersions = versions.Count > 1;
 
         return [.. versions
             .Select(version => new QaMergedIssueVersionRow(
@@ -154,6 +154,6 @@ internal sealed class RepositoryAccumulator
                     .Where(pr => pr.Version == version)
                     .OrderByDescending(static pr => pr.PullRequestUpdatedOn ?? DateTimeOffset.MinValue)
                     .ThenByDescending(static pr => pr.PullRequestId)],
-                hasMultipleVersions))];
+                HasDuplicateIssue: false))];
     }
 }

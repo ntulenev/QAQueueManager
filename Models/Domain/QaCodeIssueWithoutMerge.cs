@@ -8,9 +8,11 @@ namespace QAQueueManager.Models.Domain;
 /// <param name="RepositorySlug">The repository slug.</param>
 /// <param name="PullRequests">The related pull requests.</param>
 /// <param name="BranchNames">The related branch names.</param>
+/// <param name="HasDuplicateIssue">Whether the issue appears multiple times in the report.</param>
 internal sealed record QaCodeIssueWithoutMerge(
     QaIssue Issue,
     RepositoryFullName RepositoryFullName,
     RepositorySlug RepositorySlug,
     IReadOnlyList<JiraPullRequestLink> PullRequests,
-    IReadOnlyList<BranchName> BranchNames);
+    IReadOnlyList<BranchName> BranchNames,
+    bool HasDuplicateIssue);

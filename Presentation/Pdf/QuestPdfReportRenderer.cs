@@ -167,11 +167,12 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
                     columns.RelativeColumn(1.1f);
                     columns.RelativeColumn(1.8f);
                     columns.RelativeColumn(1.5f);
+                    columns.RelativeColumn(1.1f);
                     columns.RelativeColumn(1.3f);
                     columns.RelativeColumn(3.2f);
                 });
 
-                ComposeHeader(table, "Issue", "Status", "Assignee", "PRs", "Branches", "Last updated", "Summary");
+                ComposeHeader(table, "Issue", "Status", "Assignee", "PRs", "Branches", "Alert", "Last updated", "Summary");
 
                 for (var index = 0; index < repository.WithoutTargetMerge.Count; index++)
                 {
@@ -184,6 +185,7 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
                         item.Issue.Assignee,
                         string.Join(", ", item.PullRequests.Select(static pr => $"#{pr.Id}:{pr.Status.Value}->{pr.DestinationBranch.Value}")),
                         FormatBranchNames(item.BranchNames),
+                        FormatAlertText(item.HasDuplicateIssue),
                         FormatDate(item.Issue.UpdatedAt),
                         item.Issue.Summary);
                 }
@@ -220,15 +222,15 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
             {
                 var item = repository.MergedIssueRows[index];
                 ComposeIssueRow(
-                    table,
-                    index + 1,
-                    item.Issue,
-                    item.HasMultipleVersions,
-                    item.Issue.Status.Value,
-                    item.Issue.Assignee,
-                    FormatMergedPullRequests(item.PullRequests),
+                        table,
+                        index + 1,
+                        item.Issue,
+                        item.HasDuplicateIssue,
+                        item.Issue.Status.Value,
+                        item.Issue.Assignee,
+                        FormatMergedPullRequests(item.PullRequests),
                     item.Version.Value,
-                    FormatAlertText(item),
+                    FormatAlertText(item.HasDuplicateIssue),
                     FormatBranchNames(item.PullRequests.Select(static pr => pr.SourceBranch)),
                     FormatBranchNames(item.PullRequests.Select(static pr => pr.DestinationBranch)),
                     FormatDate(item.Issue.UpdatedAt),
@@ -265,10 +267,10 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
 
         foreach (var value in values)
         {
-            var textColor = string.Equals(value, MULTI_VERSION_ALERT_TEXT, StringComparison.Ordinal)
+            var textColor = string.Equals(value, MULTI_ENTRY_ALERT_TEXT, StringComparison.Ordinal)
                 ? Colors.Orange.Darken2
                 : Colors.Black;
-            var isAlert = string.Equals(value, MULTI_VERSION_ALERT_TEXT, StringComparison.Ordinal);
+            var isAlert = string.Equals(value, MULTI_ENTRY_ALERT_TEXT, StringComparison.Ordinal);
             table.Cell().Element(StyleBodyCell).Text(text =>
             {
                 var span = text.Span(string.IsNullOrWhiteSpace(value) ? "-" : value).FontColor(textColor);
@@ -312,9 +314,9 @@ internal sealed class QuestPdfReportRenderer : IPdfReportRenderer
     private string BuildIssueUrl(JiraIssueKey issueKey) =>
         new Uri(_jiraIssueBaseUrl, Uri.EscapeDataString(issueKey.Value)).ToString();
 
-    private static string FormatAlertText(QaMergedIssueVersionRow item) =>
-        item.HasMultipleVersions ? MULTI_VERSION_ALERT_TEXT : "-";
+    private static string FormatAlertText(bool hasDuplicateIssue) =>
+        hasDuplicateIssue ? MULTI_ENTRY_ALERT_TEXT : "-";
 
-    private const string MULTI_VERSION_ALERT_TEXT = "MULTI-VERSION";
+    private const string MULTI_ENTRY_ALERT_TEXT = "MULTI-ENTRY";
     private readonly Uri _jiraIssueBaseUrl;
 }

@@ -170,15 +170,17 @@ internal sealed class QaCodeIssueDetailsLoader : IQaCodeIssueDetailsLoader
                 .OrderBy(static name => name.Value, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            var candidate = repositoryPullRequests
+            var mergedCandidates = repositoryPullRequests
                 .Where(pr =>
                     pr.Status.IsMerged &&
                     string.Equals(pr.DestinationBranch.Value, _reportOptions.TargetBranch, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(static pr => pr.LastUpdatedOn ?? DateTimeOffset.MinValue)
                 .ThenByDescending(static pr => pr.Id)
-                .FirstOrDefault();
+                .GroupBy(static pr => pr.Id)
+                .Select(static group => group.First())
+                .ToList();
 
-            if (candidate is null)
+            if (mergedCandidates.Count == 0)
             {
                 resolutions.Add(new RepositoryResolution(
                     repositoryFullName,
@@ -188,36 +190,22 @@ internal sealed class QaCodeIssueDetailsLoader : IQaCodeIssueDetailsLoader
                 continue;
             }
 
-            var bitbucketPullRequest = repositorySlug == RepositorySlug.Unknown
-                ? null
-                : await _bitbucketClient
-                    .GetPullRequestAsync(repositorySlug, candidate.Id, cancellationToken)
-                    .ConfigureAwait(false);
-
-            if (bitbucketPullRequest is null)
+            var mergedResolutions = new List<RepositoryResolution>(mergedCandidates.Count);
+            foreach (var candidate in mergedCandidates)
             {
-                resolutions.Add(new RepositoryResolution(
+                var resolution = await TryBuildMergedResolutionAsync(
                     repositoryFullName,
                     repositorySlug,
-                    null,
-                    new MergedIssueData(
-                        new BitbucketPullRequest(
-                            candidate.Id,
-                            candidate.Status,
-                            repositoryFullName,
-                            new RepositoryDisplayName(repositorySlug.Value),
-                            repositorySlug,
-                            candidate.SourceBranch,
-                            candidate.DestinationBranch,
-                            candidate.Url,
-                            null,
-                            candidate.LastUpdatedOn),
-                        ArtifactVersion.NotFound)));
-                continue;
+                    candidate,
+                    cancellationToken).ConfigureAwait(false);
+
+                if (resolution is not null)
+                {
+                    mergedResolutions.Add(resolution);
+                }
             }
 
-            if (!bitbucketPullRequest.State.IsMerged ||
-                !string.Equals(bitbucketPullRequest.DestinationBranch.Value, _reportOptions.TargetBranch, StringComparison.OrdinalIgnoreCase))
+            if (mergedResolutions.Count == 0)
             {
                 resolutions.Add(new RepositoryResolution(
                     repositoryFullName,
@@ -227,15 +215,68 @@ internal sealed class QaCodeIssueDetailsLoader : IQaCodeIssueDetailsLoader
                 continue;
             }
 
-            var version = await ResolveVersionAsync(bitbucketPullRequest, cancellationToken).ConfigureAwait(false);
-            resolutions.Add(new RepositoryResolution(
-                repositoryFullName,
-                repositorySlug,
-                null,
-                new MergedIssueData(bitbucketPullRequest, version)));
+            resolutions.AddRange(mergedResolutions);
         }
 
         return new ProcessedCodeIssue(issue, resolutions);
+    }
+
+    private async Task<RepositoryResolution?> TryBuildMergedResolutionAsync(
+        RepositoryFullName repositoryFullName,
+        RepositorySlug repositorySlug,
+        JiraPullRequestLink candidate,
+        CancellationToken cancellationToken)
+    {
+        if (repositorySlug == RepositorySlug.Unknown)
+        {
+            return BuildMergedFallbackResolution(repositoryFullName, repositorySlug, candidate);
+        }
+
+        var bitbucketPullRequest = await _bitbucketClient
+            .GetPullRequestAsync(repositorySlug, candidate.Id, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (bitbucketPullRequest is null)
+        {
+            return BuildMergedFallbackResolution(repositoryFullName, repositorySlug, candidate);
+        }
+
+        if (!bitbucketPullRequest.State.IsMerged ||
+            !string.Equals(bitbucketPullRequest.DestinationBranch.Value, _reportOptions.TargetBranch, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var version = await ResolveVersionAsync(bitbucketPullRequest, cancellationToken).ConfigureAwait(false);
+        return new RepositoryResolution(
+            repositoryFullName,
+            repositorySlug,
+            null,
+            new MergedIssueData(bitbucketPullRequest, version));
+    }
+
+    private static RepositoryResolution BuildMergedFallbackResolution(
+        RepositoryFullName repositoryFullName,
+        RepositorySlug repositorySlug,
+        JiraPullRequestLink candidate)
+    {
+        return new RepositoryResolution(
+            repositoryFullName,
+            repositorySlug,
+            null,
+            new MergedIssueData(
+                new BitbucketPullRequest(
+                    candidate.Id,
+                    candidate.Status,
+                    repositoryFullName,
+                    new RepositoryDisplayName(repositorySlug.Value),
+                    repositorySlug,
+                    candidate.SourceBranch,
+                    candidate.DestinationBranch,
+                    candidate.Url,
+                    null,
+                    candidate.LastUpdatedOn),
+                ArtifactVersion.NotFound));
     }
 
     private async Task<ArtifactVersion> ResolveVersionAsync(
