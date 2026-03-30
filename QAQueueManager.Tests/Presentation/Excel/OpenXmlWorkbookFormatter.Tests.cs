@@ -121,6 +121,47 @@ public sealed class OpenXmlWorkbookFormatterTests
         }
     }
 
+    [Fact(DisplayName = "Format does not report merged rows when old workbook has no manual markup to restore")]
+    [Trait("Category", "Unit")]
+    public void FormatWhenOldWorkbookHasNoManualMarkupDoesNotReportMergedRows()
+    {
+        // Arrange
+        var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+        var oldWorkbookPath = Path.Combine(tempDirectory, "old-report.xlsx");
+
+        try
+        {
+            using (var oldStream = CreateIssueWorkbook(commentValue: null))
+            using (var fileStream = File.Create(oldWorkbookPath))
+            {
+                oldStream.CopyTo(fileStream);
+            }
+
+            File.SetLastWriteTimeUtc(oldWorkbookPath, DateTime.UtcNow);
+
+            using var newStream = CreateIssueWorkbook(string.Empty);
+            var formatter = CreateFormatter(tempDirectory);
+            var layout = new ExcelSheetLayout(new ExcelSheetName("Sheet1"));
+            layout.HiddenColumns.Add(5);
+
+            // Act
+            var summary = formatter.Format(newStream, new Dictionary<ExcelSheetName, ExcelSheetLayout>
+            {
+                [new ExcelSheetName("Sheet1")] = layout
+            });
+
+            // Assert
+            summary.OldReportsDirectoryPath.Should().Be(tempDirectory);
+            summary.PreviousReportPath.Should().Be(oldWorkbookPath);
+            summary.MergedRowKeys.Should().BeEmpty();
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
     private static OpenXmlWorkbookFormatter CreateFormatter(string? oldReportsPath = null) =>
         new(Options.Create(new ReportOptions
         {
@@ -129,7 +170,7 @@ public sealed class OpenXmlWorkbookFormatterTests
             OldReportsPath = oldReportsPath
         }));
 
-    private static MemoryStream CreateIssueWorkbook(string commentValue)
+    private static MemoryStream CreateIssueWorkbook(string? commentValue)
     {
         var stream = new MemoryStream();
         using (var document = SpreadsheetDocument.Create(stream, SpreadsheetDocumentType.Workbook, true))
@@ -138,12 +179,24 @@ public sealed class OpenXmlWorkbookFormatterTests
             workbookPart.Workbook = new Workbook();
 
             var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+            var dataRow = new List<(string CellReference, string Value)>
+            {
+                ("A5", "1"),
+                ("B5", "QA-1"),
+                ("C5", "Open"),
+                ("E5", "Sheet1|workspace/service-a|QA-1|1.2.3"),
+            };
+            if (commentValue is not null)
+            {
+                dataRow.Insert(3, ("D5", commentValue));
+            }
+
             var sheetData = new SheetData(
                 CreateRow(1, ("A1", "QA Queue | Team: Core")),
                 CreateRow(2, ("A2", "workspace/service-a")),
                 CreateRow(3, ("A3", "Tasks merged into target branch")),
                 CreateRow(4, ("A4", "#"), ("B4", "Issue"), ("C4", "Status"), ("D4", "Comment"), ("E4", "MarkupKey")),
-                CreateRow(5, ("A5", "1"), ("B5", "QA-1"), ("C5", "Open"), ("D5", commentValue), ("E5", "Sheet1|workspace/service-a|QA-1|1.2.3")));
+                CreateRow(5, [.. dataRow]));
             worksheetPart.Worksheet = new Worksheet(sheetData);
 
             workbookPart.Workbook.AppendChild(new Sheets(
@@ -164,6 +217,11 @@ public sealed class OpenXmlWorkbookFormatterTests
     private static void ApplyManualFill(string workbookPath, string sheetName, string startCell, string endCell)
     {
         using var document = SpreadsheetDocument.Open(workbookPath, true);
+        ApplyManualFill(document, sheetName, startCell, endCell);
+    }
+
+    private static void ApplyManualFill(SpreadsheetDocument document, string sheetName, string startCell, string endCell)
+    {
         var workbookPart = document.WorkbookPart ?? throw new InvalidOperationException("Workbook part is missing.");
         var stylesheet = workbookPart.WorkbookStylesPart?.Stylesheet ?? CreateStylesheet(workbookPart);
         var fillId = AppendFill(stylesheet, CreateSolidFill("F59E0B"));
@@ -200,8 +258,16 @@ public sealed class OpenXmlWorkbookFormatterTests
             new Fonts(new Font()) { Count = 1U, KnownFonts = true },
             new Fills(
                 new Fill(new PatternFill { PatternType = PatternValues.None }),
-                new Fill(new PatternFill { PatternType = PatternValues.Gray125 }))
-            { Count = 2U },
+                new Fill(new PatternFill { PatternType = PatternValues.Gray125 }),
+                new Fill(new PatternFill(
+                    new ForegroundColor { Rgb = "F3F4F6" },
+                    new BackgroundColor { Indexed = 64U })
+                { PatternType = PatternValues.Solid }),
+                new Fill(new PatternFill(
+                    new ForegroundColor { Rgb = "FFF7ED" },
+                    new BackgroundColor { Indexed = 64U })
+                { PatternType = PatternValues.Solid }))
+            { Count = 4U },
             new Borders(new Border()) { Count = 1U },
             new CellStyleFormats(new CellFormat()) { Count = 1U },
             new CellFormats(new CellFormat()) { Count = 1U });

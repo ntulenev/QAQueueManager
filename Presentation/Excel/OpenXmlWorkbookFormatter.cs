@@ -298,23 +298,54 @@ internal sealed class OpenXmlWorkbookFormatter : IWorkbookFormatter
                 continue;
             }
 
-            mergedRowKeys.Add(rowKey);
-            TransferCommentValue(currentWorksheetPart, currentRow, previousRow.CommentValue);
-
-            if (previousStylesheet is null)
+            if (!HasRestorableMarkup(previousRow, previousStylesheet))
             {
                 continue;
             }
 
-            TransferFillStyles(
+            var hasMergedChanges = TransferCommentValue(currentWorksheetPart, currentRow, previousRow.CommentValue);
+
+            if (previousStylesheet is null)
+            {
+                if (hasMergedChanges)
+                {
+                    mergedRowKeys.Add(rowKey);
+                }
+
+                continue;
+            }
+
+            hasMergedChanges |= TransferFillStyles(
                 currentWorksheetPart,
                 currentStylesheet,
                 previousStylesheet,
                 currentRow,
                 previousRow);
+
+            if (hasMergedChanges)
+            {
+                mergedRowKeys.Add(rowKey);
+            }
         }
 
         return mergedRowKeys;
+    }
+
+    private static bool HasRestorableMarkup(IssueRowSnapshot previousRow, Stylesheet? previousStylesheet)
+    {
+        if (!string.IsNullOrWhiteSpace(previousRow.CommentValue))
+        {
+            return true;
+        }
+
+        if (previousStylesheet is null)
+        {
+            return false;
+        }
+
+        return previousRow.StyleIndexes.Values
+            .Select(styleIndex => GetFillId(previousStylesheet, styleIndex))
+            .Any(fillId => fillId > LAST_BUILTIN_FILL_ID);
     }
 
     private static void SetCellStyle(SheetData sheetData, int columnIndex, int rowIndex, ExcelCellStyleKind styleKind)
@@ -500,24 +531,31 @@ internal sealed class OpenXmlWorkbookFormatter : IWorkbookFormatter
             nonEmptyColumns.Keys.Max());
     }
 
-    private static void TransferCommentValue(
+    private static bool TransferCommentValue(
         WorksheetPart worksheetPart,
         IssueRowSnapshot currentRow,
         string previousCommentValue)
     {
         if (currentRow.CommentColumnIndex <= 0 || string.IsNullOrWhiteSpace(previousCommentValue))
         {
-            return;
+            return false;
         }
 
         var sheetData = worksheetPart.Worksheet?.GetFirstChild<SheetData>()
             ?? throw new InvalidOperationException("Worksheet is missing sheet data.");
         var commentCell = GetOrCreateCell(sheetData, currentRow.CommentColumnIndex, currentRow.RowIndex);
+        var currentCommentValue = GetCellText(commentCell, sharedStringTable: null);
+        if (string.Equals(currentCommentValue, previousCommentValue, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
         commentCell.DataType = CellValues.String;
         commentCell.CellValue = new CellValue(previousCommentValue);
+        return true;
     }
 
-    private static void TransferFillStyles(
+    private static bool TransferFillStyles(
         WorksheetPart worksheetPart,
         Stylesheet currentStylesheet,
         Stylesheet previousStylesheet,
@@ -527,6 +565,7 @@ internal sealed class OpenXmlWorkbookFormatter : IWorkbookFormatter
         var sheetData = worksheetPart.Worksheet?.GetFirstChild<SheetData>()
             ?? throw new InvalidOperationException("Worksheet is missing sheet data.");
         var lastColumnIndex = Math.Min(currentRow.LastColumnIndex, previousRow.LastColumnIndex);
+        var hasMergedChanges = false;
 
         for (var columnIndex = 1; columnIndex <= lastColumnIndex; columnIndex++)
         {
@@ -536,7 +575,7 @@ internal sealed class OpenXmlWorkbookFormatter : IWorkbookFormatter
             }
 
             var previousFillId = GetFillId(previousStylesheet, previousStyleIndex);
-            if (previousFillId <= 1)
+            if (previousFillId <= LAST_BUILTIN_FILL_ID)
             {
                 continue;
             }
@@ -544,8 +583,17 @@ internal sealed class OpenXmlWorkbookFormatter : IWorkbookFormatter
             var importedFillId = ImportFill(currentStylesheet, previousStylesheet, previousFillId);
             var currentCell = GetOrCreateCell(sheetData, columnIndex, currentRow.RowIndex);
             var currentStyleIndex = currentCell.StyleIndex?.Value ?? 0U;
+            var currentFillId = GetFillId(currentStylesheet, currentStyleIndex);
+            if (currentFillId == importedFillId)
+            {
+                continue;
+            }
+
             currentCell.StyleIndex = GetOrCreateCellFormatWithFill(currentStylesheet, currentStyleIndex, importedFillId);
+            hasMergedChanges = true;
         }
+
+        return hasMergedChanges;
     }
 
     private static uint GetFillId(Stylesheet stylesheet, uint styleIndex)
@@ -721,6 +769,7 @@ internal sealed class OpenXmlWorkbookFormatter : IWorkbookFormatter
     private readonly string? _oldReportsPath;
     private const string MARKUP_KEY_COLUMN_NAME = "MarkupKey";
     private const double DEFAULT_HIDDEN_COLUMN_WIDTH = 18D;
+    private const uint LAST_BUILTIN_FILL_ID = 3U;
 
     private sealed record HeaderContext(int CommentColumnIndex, int MarkupKeyColumnIndex, int LastColumnIndex);
 
