@@ -39,10 +39,16 @@ public sealed class MiniExcelQaQueueReportRendererTests
                 It.Is<Stream>(stream => stream.CanSeek && stream.Length > 0),
                 It.Is<IReadOnlyDictionary<ExcelSheetName, ExcelSheetLayout>>(layouts =>
                     layouts.Count == 1 && layouts.ContainsKey(new ExcelSheetName("Sheet1")))))
-            .Callback(() => formatterCalls++)
+            .Callback(() => formatterCalls++);
+
+        var mergeService = new Mock<IExcelMarkupMergeService>(MockBehavior.Strict);
+        mergeService.Setup(value => value.Merge(
+                It.Is<Stream>(stream => stream.CanSeek && stream.Length > 0),
+                It.Is<IReadOnlyDictionary<ExcelSheetName, ExcelSheetLayout>>(layouts =>
+                    layouts.Count == 1 && layouts.ContainsKey(new ExcelSheetName("Sheet1")))))
             .Returns(new ExcelMarkupMergeSummary(null, null, []));
 
-        var renderer = new MiniExcelQaQueueReportRenderer(composer.Object, formatter.Object);
+        var renderer = new MiniExcelQaQueueReportRenderer(composer.Object, formatter.Object, mergeService.Object);
 
         // Act
         var renderResult = renderer.Render(report);

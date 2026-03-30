@@ -15,15 +15,19 @@ internal sealed class MiniExcelQaQueueReportRenderer : IExcelReportRenderer
     /// </summary>
     /// <param name="workbookContentComposer">The workbook content composer.</param>
     /// <param name="workbookFormatter">The workbook formatter.</param>
+    /// <param name="markupMergeService">The Excel markup merge service.</param>
     public MiniExcelQaQueueReportRenderer(
         IExcelWorkbookContentComposer workbookContentComposer,
-        IWorkbookFormatter workbookFormatter)
+        IWorkbookFormatter workbookFormatter,
+        IExcelMarkupMergeService markupMergeService)
     {
         ArgumentNullException.ThrowIfNull(workbookContentComposer);
         ArgumentNullException.ThrowIfNull(workbookFormatter);
+        ArgumentNullException.ThrowIfNull(markupMergeService);
 
         _workbookContentComposer = workbookContentComposer;
         _workbookFormatter = workbookFormatter;
+        _markupMergeService = markupMergeService;
     }
 
     /// <summary>
@@ -42,11 +46,13 @@ internal sealed class MiniExcelQaQueueReportRenderer : IExcelReportRenderer
             workbook.Sheets.ToDictionary(static pair => pair.Key.Value, static pair => pair.Value, StringComparer.Ordinal),
             printHeader: false);
         outputStream.Position = 0;
-        var markupMergeSummary = _workbookFormatter.Format(outputStream, workbook.Layouts);
+        _workbookFormatter.Format(outputStream, workbook.Layouts);
+        var markupMergeSummary = _markupMergeService.Merge(outputStream, workbook.Layouts);
         outputStream.Position = 0;
         return new ExcelRenderResult(outputStream, markupMergeSummary);
     }
 
     private readonly IExcelWorkbookContentComposer _workbookContentComposer;
     private readonly IWorkbookFormatter _workbookFormatter;
+    private readonly IExcelMarkupMergeService _markupMergeService;
 }

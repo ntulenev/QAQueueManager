@@ -90,6 +90,7 @@ builder.Services.AddTransient<IPdfReportFileStore, PdfReportFileStore>();
 builder.Services.AddTransient<IPdfReportLauncher, PdfReportLauncher>();
 builder.Services.AddTransient<IExcelWorkbookContentComposer, QaQueueExcelContentComposer>();
 builder.Services.AddTransient<IWorkbookFormatter, OpenXmlWorkbookFormatter>();
+builder.Services.AddTransient<IExcelMarkupMergeService, OpenXmlExcelMarkupMergeService>();
 builder.Services.AddTransient<IExcelReportRenderer, MiniExcelQaQueueReportRenderer>();
 builder.Services.AddTransient<IExcelReportFileStore, ExcelReportFileStore>();
 builder.Services.AddTransient<IQaQueueApplication, QaQueueApplication>();
