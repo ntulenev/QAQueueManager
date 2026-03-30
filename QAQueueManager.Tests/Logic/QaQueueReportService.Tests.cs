@@ -273,6 +273,188 @@ public sealed class QaQueueReportServiceTests
         report.Repositories[0].MergedIssueRows[0].PullRequests.Should().ContainSingle().Which.PullRequestId.Should().Be(new PullRequestId(88));
     }
 
+    [Fact(DisplayName = "BuildAsync groups multiple merged resolutions from one repository into multiple version rows")]
+    [Trait("Category", "Unit")]
+    public async Task BuildAsyncWhenIssueHasMultipleMergedResolutionsInSameRepositoryBuildsMultipleVersionRows()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var codeIssue = TestData.CreateIssue(3004, "QA-23", status: "In QA", developmentSummary: /*lang=json,strict*/ """{"pullRequests":2}""");
+        var pullRequestA = TestData.CreateBitbucketPullRequest(
+            id: 89,
+            repositoryFullName: "workspace/repo-c",
+            repositoryDisplayName: "Repo C",
+            repositorySlug: "repo-c",
+            sourceBranch: "feature/qa-23-first",
+            destinationBranch: "main",
+            updatedOn: new DateTimeOffset(2026, 3, 20, 12, 0, 0, TimeSpan.Zero));
+        var pullRequestB = TestData.CreateBitbucketPullRequest(
+            id: 90,
+            repositoryFullName: "workspace/repo-c",
+            repositoryDisplayName: "Repo C",
+            repositorySlug: "repo-c",
+            sourceBranch: "feature/qa-23-fix",
+            destinationBranch: "main",
+            updatedOn: new DateTimeOffset(2026, 3, 21, 12, 0, 0, TimeSpan.Zero));
+
+        var jiraIssueSearchClient = new Mock<IJiraIssueSearchClient>(MockBehavior.Strict);
+        jiraIssueSearchClient
+            .Setup(client => client.SearchIssuesAsync(It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync([codeIssue]);
+
+        var codeIssueDetailsLoader = new Mock<IQaCodeIssueDetailsLoader>(MockBehavior.Strict);
+        codeIssueDetailsLoader
+            .Setup(loader => loader.LoadAsync(
+                It.Is<IReadOnlyList<QaIssue>>(issues => issues.Count == 1 && issues[0] == codeIssue),
+                It.Is<IProgress<QaQueueBuildProgress>?>(reporter => reporter == null),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync(
+            [
+                new ProcessedCodeIssue(
+                    codeIssue,
+                    [
+                        new RepositoryResolution(
+                            new RepositoryFullName("workspace/repo-c"),
+                            new RepositorySlug("repo-c"),
+                            null,
+                            new MergedIssueData(pullRequestA, new ArtifactVersion("1.0.1"))),
+                        new RepositoryResolution(
+                            new RepositoryFullName("workspace/repo-c"),
+                            new RepositorySlug("repo-c"),
+                            null,
+                            new MergedIssueData(pullRequestB, new ArtifactVersion("1.0.5")))
+                    ])
+            ]);
+
+        var service = new QaQueueReportService(
+            jiraIssueSearchClient.Object,
+            codeIssueDetailsLoader.Object,
+            Options.Create(CreateJiraOptions()),
+            Options.Create(CreateReportOptions()));
+
+        // Act
+        var report = await service.BuildAsync(progress: null, cts.Token);
+
+        // Assert
+        var repository = report.Repositories.Should().ContainSingle().Subject;
+        repository.MergedIssueRows.Should().HaveCount(2);
+        repository.MergedIssueRows.Select(static row => row.Version.Value).Should().ContainInOrder("1.0.1", "1.0.5");
+        repository.MergedIssueRows.All(static row => row.HasDuplicateIssue).Should().BeTrue();
+        repository.MergedIssueRows[0].PullRequests.Should().ContainSingle().Which.PullRequestId.Should().Be(new PullRequestId(89));
+        repository.MergedIssueRows[1].PullRequests.Should().ContainSingle().Which.PullRequestId.Should().Be(new PullRequestId(90));
+    }
+
+    [Fact(DisplayName = "BuildAsync raises alert when one issue appears in multiple repositories")]
+    [Trait("Category", "Unit")]
+    public async Task BuildAsyncWhenIssueAppearsInMultipleRepositoriesMarksDuplicateIssueAlerts()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var codeIssue = TestData.CreateIssue(3005, "QA-24", status: "In QA", developmentSummary: /*lang=json,strict*/ """{"pullRequests":2}""");
+        var pullRequestA = TestData.CreateBitbucketPullRequest(id: 101, repositoryFullName: "workspace/repo-a", repositorySlug: "repo-a");
+        var pullRequestB = TestData.CreateBitbucketPullRequest(id: 102, repositoryFullName: "workspace/repo-b", repositoryDisplayName: "Repo B", repositorySlug: "repo-b");
+
+        var jiraIssueSearchClient = new Mock<IJiraIssueSearchClient>(MockBehavior.Strict);
+        jiraIssueSearchClient
+            .Setup(client => client.SearchIssuesAsync(It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync([codeIssue]);
+
+        var codeIssueDetailsLoader = new Mock<IQaCodeIssueDetailsLoader>(MockBehavior.Strict);
+        codeIssueDetailsLoader
+            .Setup(loader => loader.LoadAsync(
+                It.Is<IReadOnlyList<QaIssue>>(issues => issues.Count == 1 && issues[0] == codeIssue),
+                It.Is<IProgress<QaQueueBuildProgress>?>(reporter => reporter == null),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync(
+            [
+                new ProcessedCodeIssue(
+                    codeIssue,
+                    [
+                        new RepositoryResolution(
+                            new RepositoryFullName("workspace/repo-a"),
+                            new RepositorySlug("repo-a"),
+                            null,
+                            new MergedIssueData(pullRequestA, new ArtifactVersion("2.0.0"))),
+                        new RepositoryResolution(
+                            new RepositoryFullName("workspace/repo-b"),
+                            new RepositorySlug("repo-b"),
+                            null,
+                            new MergedIssueData(pullRequestB, new ArtifactVersion("3.0.0")))
+                    ])
+            ]);
+
+        var service = new QaQueueReportService(
+            jiraIssueSearchClient.Object,
+            codeIssueDetailsLoader.Object,
+            Options.Create(CreateJiraOptions()),
+            Options.Create(CreateReportOptions()));
+
+        // Act
+        var report = await service.BuildAsync(progress: null, cts.Token);
+
+        // Assert
+        report.Repositories.Should().HaveCount(2);
+        report.Repositories.SelectMany(static repository => repository.MergedIssueRows)
+            .Should()
+            .OnlyContain(static row => row.HasDuplicateIssue);
+    }
+
+    [Fact(DisplayName = "BuildAsync raises alert when one issue appears in merged and without-merge sections")]
+    [Trait("Category", "Unit")]
+    public async Task BuildAsyncWhenIssueAppearsInMergedAndWithoutMergeMarksDuplicateIssueAlerts()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var codeIssue = TestData.CreateIssue(3006, "QA-25", status: "In QA", developmentSummary: /*lang=json,strict*/ """{"pullRequests":2}""");
+        var mergedPullRequest = TestData.CreateBitbucketPullRequest(id: 103, repositoryFullName: "workspace/repo-a", repositorySlug: "repo-a");
+        var nonMergedBranch = new BranchName("feature/qa-25");
+
+        var jiraIssueSearchClient = new Mock<IJiraIssueSearchClient>(MockBehavior.Strict);
+        jiraIssueSearchClient
+            .Setup(client => client.SearchIssuesAsync(It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync([codeIssue]);
+
+        var codeIssueDetailsLoader = new Mock<IQaCodeIssueDetailsLoader>(MockBehavior.Strict);
+        codeIssueDetailsLoader
+            .Setup(loader => loader.LoadAsync(
+                It.Is<IReadOnlyList<QaIssue>>(issues => issues.Count == 1 && issues[0] == codeIssue),
+                It.Is<IProgress<QaQueueBuildProgress>?>(reporter => reporter == null),
+                It.Is<CancellationToken>(token => token == cts.Token)))
+            .ReturnsAsync(
+            [
+                new ProcessedCodeIssue(
+                    codeIssue,
+                    [
+                        new RepositoryResolution(
+                            new RepositoryFullName("workspace/repo-a"),
+                            new RepositorySlug("repo-a"),
+                            null,
+                            new MergedIssueData(mergedPullRequest, new ArtifactVersion("4.0.0"))),
+                        new RepositoryResolution(
+                            new RepositoryFullName("workspace/repo-b"),
+                            new RepositorySlug("repo-b"),
+                            new IssueWithoutMergeData([], [nonMergedBranch]),
+                            null)
+                    ])
+            ]);
+
+        var service = new QaQueueReportService(
+            jiraIssueSearchClient.Object,
+            codeIssueDetailsLoader.Object,
+            Options.Create(CreateJiraOptions()),
+            Options.Create(CreateReportOptions()));
+
+        // Act
+        var report = await service.BuildAsync(progress: null, cts.Token);
+
+        // Assert
+        report.Repositories.Should().HaveCount(2);
+        report.Repositories.Single(static repository => repository.RepositorySlug == new RepositorySlug("repo-a"))
+            .MergedIssueRows.Should().ContainSingle().Which.HasDuplicateIssue.Should().BeTrue();
+        report.Repositories.Single(static repository => repository.RepositorySlug == new RepositorySlug("repo-b"))
+            .WithoutTargetMerge.Should().ContainSingle().Which.HasDuplicateIssue.Should().BeTrue();
+    }
+
     private static JiraOptions CreateJiraOptions(string teamField = "")
     {
         return new JiraOptions

@@ -371,4 +371,146 @@ public sealed class QaCodeIssueDetailsLoaderTests
         resolution.Merged!.Version.Should().Be(ArtifactVersion.NotFound);
         resolution.Merged.PullRequest.MergeCommitHash.Should().BeNull();
     }
+
+    [Fact(DisplayName = "LoadAsync returns multiple merged resolutions for one repository when issue has multiple target-branch merges")]
+    [Trait("Category", "Unit")]
+    public async Task LoadAsyncWhenIssueHasMultipleMergedPullRequestsInOneRepositoryReturnsMultipleMergedResolutions()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var issue = TestData.CreateIssue(109, "QA-109", developmentSummary: /*lang=json,strict*/ """{"pullRequests":2}""");
+        var jiraPullRequestA = TestData.CreateJiraPullRequestLink(
+            id: 81,
+            status: "MERGED",
+            repositoryFullName: "workspace/repo-a",
+            destinationBranch: "main",
+            lastUpdatedOn: new DateTimeOffset(2026, 3, 20, 9, 0, 0, TimeSpan.Zero));
+        var jiraPullRequestB = TestData.CreateJiraPullRequestLink(
+            id: 82,
+            status: "MERGED",
+            repositoryFullName: "workspace/repo-a",
+            destinationBranch: "main",
+            lastUpdatedOn: new DateTimeOffset(2026, 3, 21, 9, 0, 0, TimeSpan.Zero));
+
+        var jiraDevelopmentClient = new Mock<IJiraDevelopmentClient>(MockBehavior.Strict);
+        jiraDevelopmentClient
+            .Setup(client => client.GetPullRequestsAsync(issue.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([jiraPullRequestA, jiraPullRequestB]);
+
+        var bitbucketClient = new Mock<IBitbucketClient>(MockBehavior.Strict);
+        bitbucketClient
+            .Setup(client => client.GetPullRequestAsync(new RepositorySlug("repo-a"), new PullRequestId(81), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestData.CreateBitbucketPullRequest(
+                id: 81,
+                repositorySlug: "repo-a",
+                mergeCommitHash: "abcdef81",
+                updatedOn: new DateTimeOffset(2026, 3, 20, 9, 30, 0, TimeSpan.Zero)));
+        bitbucketClient
+            .Setup(client => client.GetPullRequestAsync(new RepositorySlug("repo-a"), new PullRequestId(82), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestData.CreateBitbucketPullRequest(
+                id: 82,
+                repositorySlug: "repo-a",
+                mergeCommitHash: "abcdef82",
+                updatedOn: new DateTimeOffset(2026, 3, 21, 9, 30, 0, TimeSpan.Zero)));
+        bitbucketClient
+            .Setup(client => client.GetTagsByCommitHashAsync(new RepositorySlug("repo-a"), new CommitHash("abcdef81"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new BitbucketTag(new ArtifactVersion("1.0.1"), new CommitHash("abcdef81"), null)]);
+        bitbucketClient
+            .Setup(client => client.GetTagsByCommitHashAsync(new RepositorySlug("repo-a"), new CommitHash("abcdef82"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new BitbucketTag(new ArtifactVersion("1.0.5"), new CommitHash("abcdef82"), null)]);
+
+        var loader = new QaCodeIssueDetailsLoader(
+            jiraDevelopmentClient.Object,
+            bitbucketClient.Object,
+            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+
+        // Act
+        var result = await loader.LoadAsync([issue], progress: null, cts.Token);
+
+        // Assert
+        var resolutions = result.Should().ContainSingle().Subject.Resolutions;
+        resolutions.Should().HaveCount(2);
+        resolutions.Should().OnlyContain(static resolution =>
+            resolution.RepositoryFullName == new RepositoryFullName("workspace/repo-a") &&
+            resolution.RepositorySlug == new RepositorySlug("repo-a") &&
+            resolution.WithoutMerge == null &&
+            resolution.Merged != null);
+        resolutions
+            .Select(static resolution => resolution.Merged!.Version.Value)
+            .Should()
+            .BeEquivalentTo(["1.0.1", "1.0.5"]);
+        resolutions
+            .Select(static resolution => resolution.Merged!.PullRequest.Id)
+            .Should()
+            .BeEquivalentTo([new PullRequestId(81), new PullRequestId(82)]);
+    }
+
+    [Fact(DisplayName = "LoadAsync returns one resolution per repository when issue has merged pull requests in multiple repositories")]
+    [Trait("Category", "Unit")]
+    public async Task LoadAsyncWhenIssueHasMergedPullRequestsInMultipleRepositoriesReturnsMultipleRepositoryResolutions()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var issue = TestData.CreateIssue(110, "QA-110", developmentSummary: /*lang=json,strict*/ """{"pullRequests":2}""");
+        var jiraPullRequestA = TestData.CreateJiraPullRequestLink(
+            id: 91,
+            status: "MERGED",
+            repositoryFullName: "workspace/repo-a",
+            destinationBranch: "main");
+        var jiraPullRequestB = TestData.CreateJiraPullRequestLink(
+            id: 92,
+            status: "MERGED",
+            repositoryFullName: "workspace/repo-b",
+            destinationBranch: "main",
+            repositoryUrl: "https://bitbucket.example.test/workspace/repo-b",
+            url: "https://bitbucket.example.test/workspace/repo-b/pull-requests/92");
+
+        var jiraDevelopmentClient = new Mock<IJiraDevelopmentClient>(MockBehavior.Strict);
+        jiraDevelopmentClient
+            .Setup(client => client.GetPullRequestsAsync(issue.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([jiraPullRequestA, jiraPullRequestB]);
+
+        var bitbucketClient = new Mock<IBitbucketClient>(MockBehavior.Strict);
+        bitbucketClient
+            .Setup(client => client.GetPullRequestAsync(new RepositorySlug("repo-a"), new PullRequestId(91), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestData.CreateBitbucketPullRequest(
+                id: 91,
+                repositorySlug: "repo-a",
+                mergeCommitHash: "abcdef91"));
+        bitbucketClient
+            .Setup(client => client.GetPullRequestAsync(new RepositorySlug("repo-b"), new PullRequestId(92), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestData.CreateBitbucketPullRequest(
+                id: 92,
+                repositoryFullName: "workspace/repo-b",
+                repositoryDisplayName: "Repo B",
+                repositorySlug: "repo-b",
+                htmlUrl: "https://bitbucket.example.test/workspace/repo-b/pull-requests/92",
+                mergeCommitHash: "abcdef92"));
+        bitbucketClient
+            .Setup(client => client.GetTagsByCommitHashAsync(new RepositorySlug("repo-a"), new CommitHash("abcdef91"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new BitbucketTag(new ArtifactVersion("3.1.0"), new CommitHash("abcdef91"), null)]);
+        bitbucketClient
+            .Setup(client => client.GetTagsByCommitHashAsync(new RepositorySlug("repo-b"), new CommitHash("abcdef92"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new BitbucketTag(new ArtifactVersion("7.4.2"), new CommitHash("abcdef92"), null)]);
+
+        var loader = new QaCodeIssueDetailsLoader(
+            jiraDevelopmentClient.Object,
+            bitbucketClient.Object,
+            Options.Create(new ReportOptions { TargetBranch = "main", MaxParallelism = 2 }));
+
+        // Act
+        var result = await loader.LoadAsync([issue], progress: null, cts.Token);
+
+        // Assert
+        var resolutions = result.Should().ContainSingle().Subject.Resolutions;
+        resolutions.Should().HaveCount(2);
+        resolutions
+            .Select(static resolution => resolution.RepositorySlug.Value)
+            .Should()
+            .BeEquivalentTo(["repo-a", "repo-b"]);
+        resolutions
+            .Select(static resolution => resolution.Merged!.Version.Value)
+            .Should()
+            .BeEquivalentTo(["3.1.0", "7.4.2"]);
+    }
 }
